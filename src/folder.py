@@ -1,0 +1,324 @@
+import os
+import numpy as np
+import signal
+import multiprocessing
+from .chain import chain
+import ast
+
+class obj_iterator:
+  def __init__(self,obj):
+    self.current = 0
+    self.N = obj.N
+    self.obj = obj
+  def __next__(self):
+    if self.current<self.N:
+      res = self.obj[self.current]
+      self.current+=1
+      return res
+    else:
+      raise StopIteration
+
+#from collections import OrderedDict
+class folder:
+  def __init__(self):
+    self._foldername = None
+    self._allchains = None
+    self._chainprefix = None
+    self._arr = None
+    self._narr = None
+    self._log =  None
+    self.path = None
+
+  # copy this object
+  def copy(self):
+    a = folder()
+    a._foldername = self._foldername
+    a._allchains = self._allchains
+    a._chainprefix = self._chainprefix
+    a._arr = self._arr
+    a._narr = self._narr
+    a._log = self._log
+    a.path = self.path
+    return a
+
+  # Construct a folder object (containing multiple physical chains) from a path
+  @classmethod
+  def load(obj, path, kind="all"):
+    a = obj()
+    a._foldername, a._allchains, a._chainprefix = obj._resolve_chainname(path, kind=kind)
+    a._arr = None
+    a._narr = None
+    a._log = None
+    a.path = os.path.abspath(a._foldername)
+    return a
+
+  # -- Load a given chain (for a given full filename)
+  def __ldchain__(filename,verbose=False):
+    if verbose:
+      print("Loading chain {}".format(filename))
+    arr = np.genfromtxt(filename).T
+    return arr
+
+  # -- Resolve the chain names of chains -- 
+  @classmethod
+  def _resolve_chainname(obj,path,kind="all"):
+    if os.path.isfile(path):
+      folder = os.path.dirname(path)
+      allchains = [path]
+      prefix = path.split("__")[0]
+    elif os.path.isdir(os.path.join("chains",path)):
+      folder = os.path.join("chains",path)
+      allchains = obj._get_chainnames(folder,kind=kind)
+      prefix = allchains[0].split("__")[0]
+    elif os.path.isdir(path):
+      folder = path
+      allchains = obj._get_chainnames(folder,kind=kind)
+      prefix = allchains[0].split("__")[0]
+    elif os.path.exists(os.path.join("chains",path)):
+      folder = os.path.dirname(os.path.join("chains",path))
+      allchains = obj._get_chainnames(folder,kind=kind)
+      prefix = allchains[0].split("__")[0]
+    elif os.path.exists(os.path.join("chains",path+"__1.txt")):
+      folder = os.path.dirname(os.path.join("chains",path+"__1.txt"))
+      allchains = obj._get_chainnames(folder,kind=kind)
+      allchains = [ch for ch in allchains if path in ch]
+      prefix = allchains[0].split("__")[0]
+    else:
+      folder = os.path.dirname(path)
+      if folder=="":
+        raise Exception("Could not find a chain from : "+path)
+      allchains = obj._get_chainnames(folder,kind=kind)
+      prefix = allchains[0].split("__")[0]
+    return folder,allchains,prefix
+
+  # -- Get the names of the given chains
+  @classmethod
+  def _get_chainnames(obj,directory,kind="newest"):
+
+    # Check all files in directory
+    allfilenames  = os.listdir(directory)
+    chain_targets = [chain for chain in allfilenames if "__" in chain]
+
+    if kind=="newest":    
+      chain_targets = np.sort(chain_targets)[::-1]
+      newest_chain_dates = chain_targets[0].split("__")[0]
+      return [os.path.join(directory,chain) for chain in chain_targets if newest_chain_dates in chain]
+    
+    elif kind=="all":
+      return [os.path.join(directory,chain) for chain in chain_targets]
+
+    else:
+      raise Exception("Kind can either be 'all' or 'newest'")
+
+  # -- Load all points from folder -- 
+  def _get_array(self,excludesmall=True,burnin_threshold=2):
+    if self._arr is not None:
+      return self._arr
+
+    chainnames = self._allchains
+
+    if excludesmall:
+      chainnames = [chain for chain in chainnames if not "_1__" in chain]
+
+    sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pool = multiprocessing.Pool(8)
+    signal.signal(signal.SIGINT, sigint_handler)
+    try:
+      filearr = pool.map_async(folder.__ldchain__, chainnames)
+      filearr = filearr.get(60) # 60 seconds (timeout)
+    except KeyboardInterrupt:
+      print("You stopped the loading of the chains by KeyboardInterrupt")
+      pool.terminate()
+    else:
+      pool.close()
+    pool.join()
+
+    filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
+    arrs = [[] for i in range(len(filearr[0]))]
+    for iparam in range(len(filearr[0])):
+      for j in range(len(filearr)):
+        arrs[iparam] = np.concatenate([arrs[iparam],filearr[j][iparam][:]])
+    arrs = np.array(arrs)
+
+    if burnin_threshold>=0:
+      import scipy.stats
+      thres = scipy.stats.chi2.ppf(scipy.special.erf(burnin_threshold/np.sqrt(2)),len(arrs))
+      mask = arrs[1]<np.min(arrs[1])+thres/2.
+      arrs = arrs[:,mask]
+    self._arr = arrs
+    return arrs
+
+  # -- Get dictionary of all parameters in .paramnames file --
+  # Returns a dictionary with parameter name and index
+  def _load_names(self,verbose=0):
+    retdict = {}
+    index = 2
+    with open(self._chainprefix+"_.paramnames") as parnames:  
+      line = parnames.readline()
+      while line:
+        paramname = line.split()[0].strip()
+        if verbose>=1:
+          print("Param {} was found at index {}".format(paramname,index))
+        retdict[paramname]=index
+        index+=1
+        line = parnames.readline()
+    return retdict
+
+  # MAIN FUNCTION -- From the chain folder create a named array
+  def get_chain(self,excludesmall=True,burnin_threshold=5):
+    if not (self._narr is None):
+      return self._narr
+    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold)
+    #arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
+    arrdict = {'N':arr[0],'lnp':arr[1]}
+    parnames = self._load_names()
+    for index in range(2,len(arr)):
+      found = False
+      for key,value in parnames.items():
+        if value==index:
+          if not found:
+            arrdict[key]=arr[index]
+            found=True
+          else:
+            raise Exception("Key {} was found twice (already in {})".format(key,arrdict.keys()))
+      if not found:
+        arrdict["?.{}".format(index)]=arr[index]
+    self._narr = chain(arrdict)
+    return self._narr
+
+
+  # -- Whatever you do to a folder, typically you want to do to the underlying chain
+  def __getitem__(self,q):
+    if isinstance(q,(int,np.integer)):
+      return self.get_chain().get_dict(q)
+    elif not isinstance(q,str):
+      res = self.copy()
+      res._narr = self.get_chain()[q]
+      return res
+    else:
+      return self.get_chain()[q]
+  def __setitem__(self,q,v):
+    self.get_chain()[q] = v
+  @property
+  def bestfit(self):
+    res = self.copy()
+    res._narr = self.get_chain().bestfit
+    return res
+  def __str__(self):
+    return "Folder"+(self.get_chain())._str_part()
+  def derive(self, name, func, verbose = 0):
+    if verbose > 0:
+      print("Deriving new parameter "+name)
+    self[name] = func(self)
+  @property
+  def cosmopars(self):
+    if self._log is None:
+      self._log = self._read_log()
+    if self._log == {}:
+      return None
+    else:
+      return [x for (x,v) in self._log['parinfo'].items() if v['type']=='cosmo']
+  @property
+  def cosmoargs(self):
+    if self._log is None:
+      self._log = self._read_log()
+    if self._log == {}:
+      return None
+    else:
+      return list(self._log['arginfo'].keys())
+  def __iter__(self):
+    return obj_iterator(self)
+  @property
+  def N(self):
+    return self.get_chain().N
+ 
+  # -- Get all content of a log file capturing important information about the sampling process
+  # -- Currently, only montepython log.param files are supported
+  def _read_log(self,verbose=0):
+    self._log = {}
+    try:
+      loginfo ={'path':{}}
+      parinfo = {}
+      arginfo = {}
+      lklopts = {}
+      with open(os.path.join(self.path,'log.param')) as logfile:
+        line = logfile.readline()
+        while line:
+          line = line.strip()
+          if("#-----CLASS" in line):
+            before,after = line.split("(")
+            after = after.split(")")[0].strip()
+            loginfo["version"] = before.split("CLASS")[1].strip()
+            one,two=after.split(",")
+            one=one.split(":")
+            two=two.split(":")
+            if "branch" in one[0]:
+              loginfo["branch"]=one[1].strip()
+            if "hash" in two[0]:
+              loginfo["hash"]=two[1].strip()
+          elif line=="" or line[0]=='#':
+            line = logfile.readline()
+            continue
+          elif "data.experiments" in line:
+            loginfo["experiments"]=ast.literal_eval(line.split("=")[1])
+          elif "data.over_sampling" in line:
+            loginfo["oversampling"]=ast.literal_eval(line.split("=")[1])
+          elif "data.parameters" in line:
+            before,after = line.split("=")
+            parname = ast.literal_eval(before.split("[")[1].split("]")[0])
+            parinfo[parname] = {}
+            afterlist = after.split("[")[1].split("]")[0].split(",")
+            if len(afterlist)==6:
+              for i in range(len(afterlist)):
+                afterlist[i] = afterlist[i].strip()
+              parinfo[parname]["initial"]=float(afterlist[0])*float(afterlist[4])
+              parinfo[parname]["bound"]=[ast.literal_eval(afterlist[1]),ast.literal_eval(afterlist[2])]
+              if parinfo[parname]["bound"][0] is not None:
+                parinfo[parname]["bound"][0]*=float(afterlist[4])
+              if parinfo[parname]["bound"][1] is not None:
+                parinfo[parname]["bound"][1]*=float(afterlist[4])
+              parinfo[parname]["initialsigma"]=float(afterlist[3])*float(afterlist[4])
+              parinfo[parname]["type"]=ast.literal_eval(afterlist[5])
+            else:
+              raise Exception("Unknown argument list in log.param line:: "+repr(line))
+            if parname[:3]=="log":
+              parinfo[parname]['log']=10          
+            elif parname[:2]=="ln":
+              parinfo[parname]['log']=np.e
+            else:
+              parinfo[parname]['log']=0
+          elif "data.cosmo_arguments" in line and "data.path['cosmo']" in line:
+            pass
+          elif "data.cosmo_arguments" in line and not "update" in line:
+            before,after = line.split("=")
+            parname = ast.literal_eval(before.split("[")[1].split("]")[0])
+            arginfo[parname] = {}
+            arginfo[parname]=ast.literal_eval(after.strip())
+          elif "data.cosmo_arguments.update" in line:
+            loginfo["command"] = ast.literal_eval(line.split("(",1)[1].rsplit(")",1)[0])
+          elif "data.path" in line:
+            before,after = line.split("=")
+            pathname = before.split("[")[1].split("]")[0]
+            loginfo['path'][ast.literal_eval(pathname)] = ast.literal_eval(after.strip())
+          elif "=" in line:
+            before,after = line.split("=")
+            lkl,optname = before.strip().split(".")
+            try:
+              lklopts[lkl]
+            except:
+              lklopts[lkl] = {}
+            lklopts[lkl][optname] = ast.literal_eval(after.strip())
+          else:
+            raise Exception("Unrecognized line in log.param :\n",repr(line))
+          line = logfile.readline()
+      if verbose>0:
+        print("loginfo = ",loginfo)
+        print("parinfo = ",parinfo)
+        print("arginfo = ",arginfo)
+        print("lklopts = ",lklopts)
+      self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
+    except Exception as e:
+      print(e)
+      self._log = {}
+    return self._log
+ 
