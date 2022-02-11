@@ -166,7 +166,7 @@ class folder:
     with open(self._chainprefix+"_.paramnames") as parnames:  
       line = parnames.readline()
       while line:
-        texname = line.split()[1:].strip()
+        texname = " ".join(line.split()[1:]).strip()
         paramname = line.split()[0].strip()
         if verbose>=1:
           print("Param {} was found at index {}".format(paramname,index))
@@ -373,22 +373,28 @@ class folder:
             ofile.write("\n")
       with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
         for k in self.get_chain().names:
-          ofile.write("{} {}".format(k,self._texnames[k]))
+          ofile.write("{} {}\n".format(k,self._texnames[k]))
       if self._log is None:
         self._log = self._read_log()
+      if self._log != {}:
         loginfo,parinfo,arginfo,lklopts = self._log['loginfo'],self._log['parinfo'],self._log['arginfo'],self._log['lklopts']
         self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
-        with open(os.path.join(fname,'log.param')) as logfile:
-          logfile.write("#-----CLASS {} (branch: {}, hash: {})-----\n".format(loginfo['version'],loginfo['branch'],loginfo['hash']))
-          logfile.write("data.experiments=[{}]\n".format(",".join("'"+str(x)+"'" for x in loginfo['experiments'])))
-          logfile.write("data.over_sampling=[{}]\n".format(",".join(str(x) for x in loginfo['oversampling'])))
+        with open(os.path.join(fname,'log.param'),"w") as logfile:
+          logfile.write("#-----CLASS {} (branch: {}, hash: {})-----\n\n".format(loginfo['version'],loginfo['branch'],loginfo['hash']))
+          logfile.write("data.experiments=[{}]\n\n".format(",".join("'"+str(x)+"'" for x in loginfo['experiments'])))
+          logfile.write("data.over_sampling=[{}]\n\n".format(",".join(str(x) for x in loginfo['oversampling'])))
           for par in parinfo.keys():
-            logfile.write("data.parameters['{}'] = [{}, {}, {}, {}, {}, '{}']\n".format(par,parinfo[par]['initial'],parinfo[par]['bound'][0],parinfo[par]['bound'][1],parinfo[par]['initialsigma'],parinfo[par]['type']))
+            logfile.write("data.parameters['{}'] = [{}, {}, {}, {}, {}, '{}']\n".format(par,parinfo[par]['initial'],parinfo[par]['bound'][0],parinfo[par]['bound'][1],parinfo[par]['initialsigma'],1,parinfo[par]['type']))
+          logfile.write("\n")
           for par in arginfo.keys():
             logfile.write("data.cosmo_arguments['{}'] = '{}'\n".format(par,arginfo[par]))
-          logfile.write("data.cosmo_arguments.update({})\n".format(str(loginfo['command'])))
+          logfile.write("\n")
+          if 'command' in loginfo.keys():
+            logfile.write("data.cosmo_arguments.update({})\n".format(str(loginfo['command'])))
+          logfile.write("\n")
           for par in loginfo['path'].keys():
-            logfile.write("data.path['{}'] = '{}'\n".format(par,loginfo['path'][par])
+            logfile.write("data.path['{}'] = '{}'\n".format(par,loginfo['path'][par]))
+          logfile.write("\n")
           for par in lklopts.keys():
             for k in lklopts[par]:
               logfile.write("{}.{} = {}\n".format(par,k,lklopts[par][k]))

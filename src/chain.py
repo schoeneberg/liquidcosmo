@@ -12,7 +12,6 @@ class chain:
     if not isinstance(dictionary,OrderedDict):
       raise Exception("Must supply an _ordered_ python dictionary to create a chain object")
     self._d = dictionary
-    self.names = list(self._d.keys())
     self.N = len(self._d[self.names[0]])
     self._idx_bestfit = None
 
