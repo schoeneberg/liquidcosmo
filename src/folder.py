@@ -223,29 +223,33 @@ class folder:
     self._texnames[name] = (name if texname is None else texname)
     if verbose > 0:
       print("Deriving new parameter "+name)
+    if(self.logfile != {}):
+      self.logfile['parinfo'][name] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
     self[name] = func(self)
   @property
   def cosmopars(self):
-    if self._log is None:
-      self._log = self._read_log()
-    if self._log == {}:
+    if self.logfile == {}:
       return None
     else:
-      return [x for (x,v) in self._log['parinfo'].items() if v['type']=='cosmo']
+      return [x for (x,v) in self.logfile['parinfo'].items() if v['type']=='cosmo']
   @property
   def cosmoargs(self):
-    if self._log is None:
-      self._log = self._read_log()
-    if self._log == {}:
+    if self.logfile == {}:
       return None
     else:
-      return list(self._log['arginfo'].keys())
+      return list(self.logfile['arginfo'].keys())
   def __iter__(self):
     return obj_iterator(self)
   @property
   def N(self):
     return self.get_chain().N
- 
+  @property
+  def logfile(self):
+    if self._log is None:
+      self._log = self._read_log()
+    else:
+      return self._log
+
   # -- Get all content of a log file capturing important information about the sampling process
   # -- Currently, only montepython log.param files are supported
   def _read_log(self,verbose=0):
@@ -373,11 +377,8 @@ class folder:
       with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
         for k in self.get_chain().names:
           ofile.write("{} {}\n".format(k,self._texnames[k]))
-      if self._log is None:
-        self._log = self._read_log()
-      if self._log != {}:
-        loginfo,parinfo,arginfo,lklopts = self._log['loginfo'],self._log['parinfo'],self._log['arginfo'],self._log['lklopts']
-        self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
+      if self.logfile != {}:
+        loginfo,parinfo,arginfo,lklopts = self.logfile['loginfo'],self.logfile['parinfo'],self.logfile['arginfo'],self.logfile['lklopts']
         with open(os.path.join(fname,'log.param'),"w") as logfile:
           logfile.write("#-----CLASS {} (branch: {}, hash: {})-----\n\n".format(loginfo['version'],loginfo['branch'],loginfo['hash']))
           logfile.write("data.experiments=[{}]\n\n".format(",".join("'"+str(x)+"'" for x in loginfo['experiments'])))
