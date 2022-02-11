@@ -369,10 +369,10 @@ class folder:
           index+=c
           ofile.write("# "+"\t".join(arr.keys())+"\n")
           for j in range(len(arr['N'])):
-            ofile.write("%g"%arr['N'][j])
-            ofile.write("\t"+str(arr['lnp'][j]))
+            ofile.write("%.4g"%arr['N'][j])
+            ofile.write(" %.6g\t"%arr['lnp'][j])
             for k in list(arr.keys())[2:]:
-              ofile.write("\t"+str(arr[k][j]))
+              ofile.write("%.6e\t"%arr[k][j])
             ofile.write("\n")
       with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
         for k in self.get_chain().names[2:]:
