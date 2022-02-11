@@ -397,5 +397,6 @@ class folder:
           logfile.write("\n")
           for par in lklopts.keys():
             for k in lklopts[par]:
-              logfile.write("{}.{} = {}\n".format(par,k,lklopts[par][k]))
+              lklop = lklopts[par][k]
+              logfile.write("{}.{} = {}\n".format(par,k,str(lklop) if not isinstance(lklop,str) else "'{}'".format(lklop)))
 
