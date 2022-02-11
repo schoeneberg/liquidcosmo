@@ -11,7 +11,7 @@ setup(name = "liquidcosmo",
       long_description = readme,
       long_description_content_type="text/markdown",
       url="https://github.com/schoeneberg/liquidcosmo/",
-      packages=find_packages(),
+      py_modules=['liquidcosmo','src.chain','src.folder'],
       install_requires=requirements,
       classifiers=[
           "Programming Language :: Python :: 3.8",

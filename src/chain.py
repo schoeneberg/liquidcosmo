@@ -68,4 +68,8 @@ class chain:
     return self[self._idx_bestfit]
   def derive(self, name, func):
     self[name] = func(self)
+
+  @property
+  def names(self):
+    return list(self._d.keys())
       

@@ -27,6 +27,7 @@ class folder:
     self._allchains = None
     self._chainprefix = None
     self.lens = None
+    self._texnames = None
     self._arr = None
     self._narr = None
     self._log =  None
@@ -39,6 +40,7 @@ class folder:
     a._allchains = self._allchains
     a._chainprefix = self._chainprefix
     a.lens = self.lens
+    a._texnames = self._texnames
     a._arr = self._arr
     a._narr = self._narr
     a._log = self._log
@@ -51,6 +53,7 @@ class folder:
     a = obj()
     a._foldername, a._allchains, a._chainprefix = obj._resolve_chainname(path, kind=kind)
     a.lens = None
+    a._texnames = None
     a._arr = None
     a._narr = None
     a._log = None
@@ -158,17 +161,20 @@ class folder:
   # Returns a dictionary with parameter name and index
   def _load_names(self,verbose=0):
     retdict = {}
+    texdict = {'N':'Multiplicity','lnp':'-\\ln(\\mathcal{L})'}
     index = 2
     with open(self._chainprefix+"_.paramnames") as parnames:  
       line = parnames.readline()
       while line:
+        texname = line.split()[1:].strip()
         paramname = line.split()[0].strip()
         if verbose>=1:
           print("Param {} was found at index {}".format(paramname,index))
         retdict[paramname]=index
+        texdict[paramname] = texname
         index+=1
         line = parnames.readline()
-    return retdict
+    return retdict,texdict
 
   # MAIN FUNCTION -- From the chain folder create a named array
   def get_chain(self,excludesmall=True,burnin_threshold=5):
@@ -177,7 +183,7 @@ class folder:
     arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold)
     arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
     #arrdict = {'N':arr[0],'lnp':arr[1]}
-    parnames = self._load_names()
+    parnames, texnames = self._load_names()
     for index in range(2,len(arr)):
       found = False
       for key,value in parnames.items():
@@ -190,6 +196,7 @@ class folder:
       if not found:
         arrdict["?.{}".format(index)]=arr[index]
     self._narr = chain(arrdict)
+    self._texnames = texnames
     return self._narr
 
 
@@ -212,7 +219,9 @@ class folder:
     return res
   def __str__(self):
     return "Folder"+(self.get_chain())._str_part()
-  def derive(self, name, func, verbose = 0):
+  def derive(self, name, func, verbose = 0, texname = None):
+    if texname == None:
+      self._texnames[name] = texname
     if verbose > 0:
       print("Deriving new parameter "+name)
     self[name] = func(self)
@@ -362,4 +371,25 @@ class folder:
             for k in arr.keys():
               ofile.write(" "+str(arr[k][j]))
             ofile.write("\n")
+      with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
+        for k in self.get_chain().names:
+          ofile.write("{} {}".format(k,self._texnames[k]))
+      if self._log is None:
+        self._log = self._read_log()
+        loginfo,parinfo,arginfo,lklopts = self._log['loginfo'],self._log['parinfo'],self._log['arginfo'],self._log['lklopts']
+        self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
+        with open(os.path.join(fname,'log.param')) as logfile:
+          logfile.write("#-----CLASS {} (branch: {}, hash: {})-----\n".format(loginfo['version'],loginfo['branch'],loginfo['hash']))
+          logfile.write("data.experiments=[{}]\n".format(",".join("'"+str(x)+"'" for x in loginfo['experiments'])))
+          logfile.write("data.over_sampling=[{}]\n".format(",".join(str(x) for x in loginfo['oversampling'])))
+          for par in parinfo.keys():
+            logfile.write("data.parameters['{}'] = [{}, {}, {}, {}, {}, '{}']\n".format(par,parinfo[par]['initial'],parinfo[par]['bound'][0],parinfo[par]['bound'][1],parinfo[par]['initialsigma'],parinfo[par]['type']))
+          for par in arginfo.keys():
+            logfile.write("data.cosmo_arguments['{}'] = '{}'\n".format(par,arginfo[par]))
+          logfile.write("data.cosmo_arguments.update({})\n".format(str(loginfo['command'])))
+          for par in loginfo['path'].keys():
+            logfile.write("data.path['{}'] = '{}'\n".format(par,loginfo['path'][par])
+          for par in lklopts.keys():
+            for k in lklopts[par]:
+              logfile.write("{}.{} = {}\n".format(par,k,lklopts[par][k]))
 
