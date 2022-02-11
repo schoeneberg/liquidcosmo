@@ -375,7 +375,7 @@ class folder:
               ofile.write(" "+str(arr[k][j]))
             ofile.write("\n")
       with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
-        for k in self.get_chain().names:
+        for k in self.get_chain().names[2:]:
           ofile.write("{} {}\n".format(k,self._texnames[k]))
       if self.logfile != {}:
         loginfo,parinfo,arginfo,lklopts = self.logfile['loginfo'],self.logfile['parinfo'],self.logfile['arginfo'],self.logfile['lklopts']
