@@ -367,12 +367,12 @@ class folder:
         with open(os.path.join(fname,str(date.today())+"_"+str(c)+"__"+str(i)+".txt"),"w") as ofile:
           arr = self.get_chain()[index:index+c+1]._d
           index+=c
-          ofile.write("# "+" ".join(arr.keys())+"\n")
+          ofile.write("# "+"\t".join(arr.keys())+"\n")
           for j in range(len(arr['N'])):
-            ofile.write(" "+str(arr['N'][j]))
-            ofile.write(" "+str(arr['lnp'][j]))
-            for k in arr.keys():
-              ofile.write(" "+str(arr[k][j]))
+            ofile.write("%g"%arr['N'][j])
+            ofile.write("\t"+str(arr['lnp'][j]))
+            for k in list(arr.keys())[2:]:
+              ofile.write("\t"+str(arr[k][j]))
             ofile.write("\n")
       with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
         for k in self.get_chain().names[2:]:
