@@ -1,12 +1,16 @@
 from copy import deepcopy
 import numpy as np
 # Basically a wrapper for a dictionary of arrays, but with some added basic functionality
+import matplotlib.pyplot as plt
+import getdist
+from collections import OrderedDict
+
 class chain:
 
   # Initialize the chain object
   def __init__(self, dictionary):
-    if not isinstance(dictionary,dict):
-      raise Exception("Must supply a python dictionary to create a chain object")
+    if not isinstance(dictionary,OrderedDict):
+      raise Exception("Must supply an _ordered_ python dictionary to create a chain object")
     self._d = dictionary
     self.names = list(self._d.keys())
     self.N = len(self._d[self.names[0]])
@@ -15,15 +19,15 @@ class chain:
   # Get an item from the chain
   def __getitem__(self, q):
     if isinstance(q,(int,np.integer)):
-      return chain({key:[self._d[key][q]] for key in self.names})
+      return chain(OrderedDict({key:[self._d[key][q]] for key in self.names}))
     elif isinstance(q,str):
       return self._d[q]
     elif isinstance(q,slice):
-      return chain({key:self._d[key][q] for key in self.names})
+      return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
     elif isinstance(q,np.ndarray) and q.dtype=="bool":
-      return chain({key:self._d[key][q] for key in self.names})
+      return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
     elif isinstance(q,list) and len(q)>0 and isinstance(q[0],str):
-      return chain({key:self._d[key] for key in q})
+      return chain(OrderedDict({key:self._d[key] for key in q}))
     else:
       raise Exception("Cannot get from chain with object of type "+str(type(q)))
   def get_dict(self,i):
@@ -43,11 +47,11 @@ class chain:
         for key in self.names:
           if key in v.names:
             self._d[key][q] = v[key]
-        return chain({key:self._d[key][q] for key in self.names})
+        return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
       else:
         raise Exception("Cannot set part of chain with a non-chain object of type "+str(type(v)))
     elif isinstance(q,int):
-      return chain({key:self._d[key][q] for key in self.names})
+      return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
     else:
       raise Exception("Cannot set chain with object of type "+str(type(q)))
   def __str__(self):

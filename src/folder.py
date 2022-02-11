@@ -4,6 +4,8 @@ import signal
 import multiprocessing
 from .chain import chain
 import ast
+from datetime import date
+from collections import OrderedDict
 
 class obj_iterator:
   def __init__(self,obj):
@@ -24,6 +26,7 @@ class folder:
     self._foldername = None
     self._allchains = None
     self._chainprefix = None
+    self.lens = None
     self._arr = None
     self._narr = None
     self._log =  None
@@ -35,6 +38,7 @@ class folder:
     a._foldername = self._foldername
     a._allchains = self._allchains
     a._chainprefix = self._chainprefix
+    a.lens = self.lens
     a._arr = self._arr
     a._narr = self._narr
     a._log = self._log
@@ -46,6 +50,7 @@ class folder:
   def load(obj, path, kind="all"):
     a = obj()
     a._foldername, a._allchains, a._chainprefix = obj._resolve_chainname(path, kind=kind)
+    a.lens = None
     a._arr = None
     a._narr = None
     a._log = None
@@ -134,6 +139,7 @@ class folder:
     pool.join()
 
     filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
+    self.lens = np.array([len(fa[0]) for fa in filearr])
     arrs = [[] for i in range(len(filearr[0]))]
     for iparam in range(len(filearr[0])):
       for j in range(len(filearr)):
@@ -169,8 +175,8 @@ class folder:
     if not (self._narr is None):
       return self._narr
     arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold)
-    #arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
-    arrdict = {'N':arr[0],'lnp':arr[1]}
+    arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
+    #arrdict = {'N':arr[0],'lnp':arr[1]}
     parnames = self._load_names()
     for index in range(2,len(arr)):
       found = False
@@ -321,4 +327,39 @@ class folder:
       print(e)
       self._log = {}
     return self._log
- 
+
+  def write(self, fname):
+    if os.path.exists(fname):
+      raise Exception("File path already exists : ",fname)
+    else:
+      # How many points to put into the individual chains?
+      if self.N == np.sum(self.lens):
+        # If we still have the original number of points, the answer is trivial
+        counts = self.lens
+      else:
+        # If the chain has been 'tampered' with, we need to re-distribute the remaining point over the given number of files
+        if(self.N < len(self.lens)):
+          # Less chain points than files, summarize all in one file
+          counts = [self.N]
+        else:
+          counts = np.empty_like(self.lens)
+          c_per_file = self.N//len(self.lens)
+          remainder = self.N-c_per_file*len(self.lens)
+          for i in range(len(self.lens)):
+            counts[i] = c_per_file + (1 if remainder>0 else 0)
+            if remainder > 0:
+              remainder -= 1
+      os.mkdir(fname)
+      index = 0
+      for i, c in enumerate(counts):
+        with open(os.path.join(fname,str(date.today())+"_"+str(c)+"__"+str(i)+".txt"),"w") as ofile:
+          arr = self.get_chain()[index:index+c+1]._d
+          index+=c
+          ofile.write("# "+" ".join(arr.keys())+"\n")
+          for j in range(len(arr['N'])):
+            ofile.write(" "+str(arr['N'][j]))
+            ofile.write(" "+str(arr['lnp'][j]))
+            for k in arr.keys():
+              ofile.write(" "+str(arr[k][j]))
+            ofile.write("\n")
+
