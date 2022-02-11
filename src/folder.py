@@ -220,8 +220,7 @@ class folder:
   def __str__(self):
     return "Folder"+(self.get_chain())._str_part()
   def derive(self, name, func, verbose = 0, texname = None):
-    if texname == None:
-      self._texnames[name] = texname
+    self._texnames[name] = (name if texname is None else texname)
     if verbose > 0:
       print("Deriving new parameter "+name)
     self[name] = func(self)
