@@ -404,6 +404,10 @@ class folder:
               lklop = lklopts[par][k]
               logfile.write("{}.{} = {}\n".format(par,k,str(lklop) if not isinstance(lklop,str) else "'{}'".format(lklop)))
 
+  def set_range(self,parname,lower=None,upper=None):
+    if self.logfile != {} and parname in self.logfile['parinfo']:
+      self.logfile['parinfo'][parname]['bound'] = [lower,upper]
+
   def to_getdist(self):
     # No logging of warnings temporarily, so getdist won't complain unnecessarily
     #extend using https://github.com/cmbant/getdist/blob/master/getdist/cobaya_interface.py
@@ -412,7 +416,7 @@ class folder:
     names = self.get_chain().names[2:]
     bounds = {}
     for par in names:
-      if par in self.logfile['parinfo']:
+      if self.logfile != {} and par in self.logfile['parinfo']:
         bounds[par] = self.logfile['parinfo'][par]['bound']
       else:
         bounds[par] = [None,None]
