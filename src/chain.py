@@ -1,4 +1,3 @@
-from copy import deepcopy
 import numpy as np
 # Basically a wrapper for a dictionary of arrays, but with some added basic functionality
 import matplotlib.pyplot as plt

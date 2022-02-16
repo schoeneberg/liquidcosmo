@@ -6,6 +6,7 @@ from .chain import chain
 import ast
 from datetime import date
 from collections import OrderedDict
+from copy import deepcopy
 
 class obj_iterator:
   def __init__(self,obj):
