@@ -47,6 +47,20 @@ class folder:
     a.path = self.path
     return a
 
+  # deepcopy this object
+  def deepcopy(self):
+    a = folder()
+    a._foldername = deepcopy(self._foldername)
+    a._allchains = deepcopy(self._allchains)
+    a._chainprefix = deepcopy(self._chainprefix)
+    a.lens = deepcopy(self.lens)
+    a._texnames = deepcopy(self._texnames)
+    a._arr = deepcopy(self._arr)
+    a._narr = deepcopy(self._narr)
+    a._log = deepcopy(self._log)
+    a.path = deepcopy(self.path)
+    return a
+
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
   def load(obj, path, kind="all"):
