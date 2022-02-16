@@ -211,6 +211,9 @@ class folder:
     else:
       return self.get_chain()[q]
   def __setitem__(self,q,v):
+    if isinstance(q,str):
+      if not q in self._texnames:
+        self._texnames[q] = q
     self.get_chain()[q] = v
   @property
   def bestfit(self):
@@ -407,13 +410,12 @@ class folder:
     from getdist import MCSamples
     sampler = "mcmc" #We could get this from the log.param file
     names = self.get_chain().names[2:]
-    print(names)
-    if self.logfile:
-      bounds = {par:self.logfile['parinfo'][par]['bound'] for par in names}
-    else:
-      bounds = {par:None for par in names}
-    print(bounds,self.logfile)
-    print(self._texnames)
+    bounds = {}
+    for par in names:
+      if par in self.logfile['parinfo']:
+        bounds[par] = self.logfile['parinfo'][par]['bound']
+      else:
+        bounds[par] = [None,None]
     samples =  np.array([self.get_chain()._d[arg] for arg in names])
     mcsamples = MCSamples(
         samples=samples.T,

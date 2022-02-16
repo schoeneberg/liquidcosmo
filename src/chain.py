@@ -26,7 +26,15 @@ class chain:
     elif isinstance(q,np.ndarray) and q.dtype=="bool":
       return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
     elif isinstance(q,list) and len(q)>0 and isinstance(q[0],str):
-      return chain(OrderedDict({key:self._d[key] for key in q}))
+      od = OrderedDict({'N':self._d['N'],'lnp':self._d['lnp']})
+      for key in q:
+        if key=='N' or key=='lnp':
+          continue
+        try:
+          od[key] = self._d[key]
+        except KeyError as e:
+          raise Exception("Could not find variable '{}' in chain, even though you asked for '{}'.".format(key,q)) from e
+      return chain(od)
     else:
       raise Exception("Cannot get from chain with object of type "+str(type(q)))
   def get_dict(self,i):
