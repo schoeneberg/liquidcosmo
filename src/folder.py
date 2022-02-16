@@ -247,6 +247,7 @@ class folder:
   def logfile(self):
     if self._log is None:
       self._log = self._read_log()
+      return self._log
     else:
       return self._log
 
@@ -400,3 +401,32 @@ class folder:
               lklop = lklopts[par][k]
               logfile.write("{}.{} = {}\n".format(par,k,str(lklop) if not isinstance(lklop,str) else "'{}'".format(lklop)))
 
+  def to_getdist(self):
+    # No logging of warnings temporarily, so getdist won't complain unnecessarily
+    #extend using https://github.com/cmbant/getdist/blob/master/getdist/cobaya_interface.py
+    from getdist import MCSamples
+    sampler = "mcmc" #We could get this from the log.param file
+    names = self.get_chain().names[2:]
+    print(names)
+    if self.logfile:
+      bounds = {par:self.logfile['parinfo'][par]['bound'] for par in names}
+    else:
+      bounds = {par:None for par in names}
+    print(bounds,self.logfile)
+    print(self._texnames)
+    samples =  np.array([self.get_chain()._d[arg] for arg in names])
+    mcsamples = MCSamples(
+        samples=samples.T,
+        weights= self.get_chain()._d['N'],
+        loglikes=self.get_chain()._d['lnp'],
+        names=names,
+        labels=[self._texnames[par] for par in names],
+        sampler=sampler,
+        ranges={par:bounds[par] for par in names})
+    return mcsamples
+
+  def plot_getdist(self,ax=None):
+    from getdist.plots import get_subplot_plotter
+    gdfolder = self.to_getdist()
+    spp = get_subplot_plotter()
+    spp.triangle_plot([gdfolder],filled=True)
