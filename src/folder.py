@@ -423,6 +423,9 @@ class folder:
     if self.logfile != {} and parname in self.logfile['parinfo']:
       self.logfile['parinfo'][parname]['bound'] = [lower,upper]
 
+  def get_masked(self, mask):
+    return self[mask].deepcopy()
+
   def to_getdist(self):
     # No logging of warnings temporarily, so getdist won't complain unnecessarily
     #extend using https://github.com/cmbant/getdist/blob/master/getdist/cobaya_interface.py
