@@ -64,7 +64,7 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all"):
+  def load(obj, path, kind="all", burnin_threshold = 5):
     a = obj()
     a._foldername, a._allchains, a._chainprefix = obj._resolve_chainname(path, kind=kind)
     a.lens = None
@@ -73,6 +73,7 @@ class folder:
     a._narr = None
     a._log = None
     a.path = os.path.abspath(a._foldername)
+    a.get_chain(burnin_threshold=burnin_threshold)
     return a
 
   # -- Load a given chain (for a given full filename)
@@ -218,31 +219,35 @@ class folder:
   # -- Whatever you do to a folder, typically you want to do to the underlying chain
   def __getitem__(self,q):
     if isinstance(q,(int,np.integer)):
-      return self.get_chain().get_dict(q)
+      return self.chain.get_dict(q)
     elif not isinstance(q,str):
       res = self.copy()
-      res._narr = self.get_chain()[q]
+      res._narr = self.chain[q]
       return res
     else:
-      return self.get_chain()[q]
+      return self.chain[q]
   def __setitem__(self,q,v):
     if isinstance(q,str):
       if not q in self._texnames:
         self._texnames[q] = q
-    self.get_chain()[q] = v
+      if(self.logfile != {}):
+        if q in self.logfile['parinfo']:
+          raise Exception("Did not expect parameter '{}' in logfile. This is a bug, please report to the developer".format(q))
+        self.logfile['parinfo'][q] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
+    self.chain[q] = v
   @property
   def bestfit(self):
     res = self.copy()
-    res._narr = self.get_chain().bestfit
+    res._narr = self.chain.bestfit
     return res
   def __str__(self):
-    return "Folder"+(self.get_chain())._str_part()
+    return "Folder"+self.chain._str_part()
   def derive(self, name, func, verbose = 0, texname = None):
-    self._texnames[name] = (name if texname is None else texname)
     if verbose > 0:
       print("Deriving new parameter "+name)
-    if(self.logfile != {}):
-      self.logfile['parinfo'][name] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
+    self._texnames[name] = (name if texname is None else texname)
+    if isinstance(func,(list,tuple,np.ndarray)):
+      self[name] = func
     self[name] = func(self)
   @property
   def cosmopars(self):
@@ -260,7 +265,7 @@ class folder:
     return obj_iterator(self)
   @property
   def N(self):
-    return self.get_chain().N
+    return self.chain.N
   @property
   def logfile(self):
     if self._log is None:
@@ -268,6 +273,13 @@ class folder:
       return self._log
     else:
       return self._log
+  @property
+  def names(self):
+    return self.chain.names
+  @property
+  def chain(self):
+    return self.get_chain()
+
 
   # -- Get all content of a log file capturing important information about the sampling process
   # -- Currently, only montepython log.param files are supported
@@ -384,7 +396,7 @@ class folder:
       index = 0
       for i, c in enumerate(counts):
         with open(os.path.join(fname,str(date.today())+"_"+str(c)+"__"+str(i)+".txt"),"w") as ofile:
-          arr = self.get_chain()[index:index+c+1]._d
+          arr = self.chain[index:index+c+1]._d
           index+=c
           ofile.write("# "+"\t".join(arr.keys())+"\n")
           for j in range(len(arr['N'])):
@@ -394,7 +406,7 @@ class folder:
               ofile.write("%.6e\t"%arr[k][j])
             ofile.write("\n")
       with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
-        for k in self.get_chain().names[2:]:
+        for k in self.names[2:]:
           ofile.write("{} {}\n".format(k,self._texnames[k]))
       if self.logfile != {}:
         loginfo,parinfo,arginfo,lklopts = self.logfile['loginfo'],self.logfile['parinfo'],self.logfile['arginfo'],self.logfile['lklopts']
@@ -431,18 +443,18 @@ class folder:
     #extend using https://github.com/cmbant/getdist/blob/master/getdist/cobaya_interface.py
     from getdist import MCSamples
     sampler = "mcmc" #We could get this from the log.param file
-    names = self.get_chain().names[2:]
+    names = self.names[2:]
     bounds = {}
     for par in names:
       if self.logfile != {} and par in self.logfile['parinfo']:
         bounds[par] = self.logfile['parinfo'][par]['bound']
       else:
         bounds[par] = [None,None]
-    samples =  np.array([self.get_chain()._d[arg] for arg in names])
+    samples =  np.array([self.chain._d[arg] for arg in names])
     mcsamples = MCSamples(
         samples=samples.T,
-        weights= self.get_chain()._d['N'],
-        loglikes=self.get_chain()._d['lnp'],
+        weights= self.chain._d['N'],
+        loglikes=self.chain._d['lnp'],
         names=names,
         labels=[self._texnames[par] for par in names],
         sampler=sampler,
