@@ -225,6 +225,8 @@ class folder:
       res._narr = self.chain[q]
       return res
     else:
+      if q not in self.names:
+        raise KeyError("Key '{}' not found within the chain".format(q))
       return self.chain[q]
   def __setitem__(self,q,v):
     if isinstance(q,str):
@@ -242,6 +244,8 @@ class folder:
     return res
   def __str__(self):
     return "Folder"+self.chain._str_part()
+
+  # Basically same as setting a value directly, but also allows passing a function
   def derive(self, name, func, verbose = 0, texname = None):
     if verbose > 0:
       print("Deriving new parameter "+name)
@@ -435,8 +439,39 @@ class folder:
     if self.logfile != {} and parname in self.logfile['parinfo']:
       self.logfile['parinfo'][parname]['bound'] = [lower,upper]
 
+  def set_texname(self,parname,texname):
+    if parname in self._texnames:
+      self._texnames[parname] = texname
+    else:
+      raise Exception("Parameter '{}' not found in the list of parameters.".format(parname))
+
   def get_masked(self, mask):
     return self[mask].deepcopy()
+
+  def mean(self,parname=None):
+    if isinstance(parname,str):
+      return self._parmean(parname)
+    elif isinstance(parname,(list,tuple)):
+      return np.array([self._parmean(q) for q in parname])
+    elif parname is None:
+      return np.array([self._parmean(q) for q in self.names[2:]])
+    else:
+      raise Exception("Input to mean '{}' not recognized.".format(parname))
+
+  def cov(self,parnames=None):
+    if isinstance(parnames,str):
+      return self._parcov([parnames])
+    elif isinstance(parnames,(list,tuple)):
+      return self._parcov(parnames)
+    elif parnames is None:
+      return self._parcov(self.names[2:])
+    else:
+      raise Exception("Input to mean '{}' not recognized.".format(parnames))
+
+  def _parmean(self,parname):
+    return np.average(self[parname],weights=self['N'])
+  def _parcov(self,parnames):
+    return np.cov([self[parname] for parname in parnames],fweights=self['N'])
 
   def to_getdist(self):
     # No logging of warnings temporarily, so getdist won't complain unnecessarily
