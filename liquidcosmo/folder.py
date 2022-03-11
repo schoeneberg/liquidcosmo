@@ -447,6 +447,31 @@ class folder:
 
   def get_masked(self, mask):
     return self[mask].deepcopy()
+  def subrange(self, parname=None, value=None):
+    if isinstance(parname,str):
+      if isinstance(value,(list,np.ndarray,tuple)):
+        if len(value)!=2:
+          raise Exception("Could not understand subrange arugment '{}' for parameter '{}'".format(value,parname))
+        else:
+          if isinstance(value[0],(float,np.floating)) and isinstance(value[1],(float,np.floating)):
+            mask = np.logical_and(self[parname]>value[0],self[parname]<value[1])
+            return self[mask]
+          elif isinstance(value[0],(float,np.floating)) and value[1] is None:
+            return self[self[parname]>value[0]]
+          elif isinstance(value[1],(float,np.floating)) and value[0] is None:
+            return self[self[parname]<value[1]]
+          else:
+            raise Exception("Could not understand subrange arugment '{}' for parameter '{}'".format(value,parname))
+    elif isinstance(parname,(list,np.ndarray,tuple)):
+      obj = self
+      for i,p in enumerate(parname):
+        obj = obj.subrange(p, value[i])
+      return obj
+    elif isinstance(parname,dict):
+      obj = self
+      for p,v in parname.items():
+        obj = obj.subrange(p, v)
+      return obj
 
   def mean(self,parname=None):
     if isinstance(parname,str):
