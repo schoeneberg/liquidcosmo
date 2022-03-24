@@ -283,7 +283,12 @@ class folder:
   @property
   def chain(self):
     return self.get_chain()
-
+  @property
+  def samples(self):
+    return np.array([self.chain._d[arg] for arg in self.names[2:]])
+  @property
+  def d(self):
+    return len(self.names)-2
 
   # -- Get all content of a log file capturing important information about the sampling process
   # -- Currently, only montepython log.param files are supported
@@ -498,6 +503,7 @@ class folder:
   def _parcov(self,parnames):
     return np.cov([self[parname] for parname in parnames],fweights=self['N'])
 
+
   def to_getdist(self):
     # No logging of warnings temporarily, so getdist won't complain unnecessarily
     #extend using https://github.com/cmbant/getdist/blob/master/getdist/cobaya_interface.py
@@ -510,9 +516,8 @@ class folder:
         bounds[par] = self.logfile['parinfo'][par]['bound']
       else:
         bounds[par] = [None,None]
-    samples =  np.array([self.chain._d[arg] for arg in names])
     mcsamples = MCSamples(
-        samples=samples.T,
+        samples=self.samples.T,
         weights= self.chain._d['N'],
         loglikes=self.chain._d['lnp'],
         names=names,

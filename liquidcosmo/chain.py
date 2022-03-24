@@ -24,6 +24,8 @@ class chain:
       return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
     elif isinstance(q,np.ndarray) and q.dtype=="bool":
       return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
+    elif isinstance(q,np.ndarray) and (q.dtype=="int" or np.issubdtype(q.dtype,np.integer)):
+      return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
     elif isinstance(q,(tuple,list)) and len(q)>0 and isinstance(q[0],str):
       od = OrderedDict({'N':self._d['N'],'lnp':self._d['lnp']})
       for key in q:
