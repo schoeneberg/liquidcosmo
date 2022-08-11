@@ -12,7 +12,7 @@ class foldercollection:
       newargs = args[0]
     else:
       newargs = list(args)
-    a.folderlist = [folder.load(arg) for arg in args]
+    a.folderlist = [folder.load(arg) for arg in newargs]
     return a
 
   @property
