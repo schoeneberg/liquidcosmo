@@ -1,8 +1,12 @@
 from .folder import folder
+from .foldercollection import foldercollection
 from .matplotlib_defaults import matplotlib_defaults
 matplotlib_defaults()
-def load(path):
-  return folder.load(path)
+def load(*args):
+  if len(args)==1 and isinstance(args[0],str):
+    return folder.load(args[0])
+  else:
+    return foldercollection.load(*args)
 def load_chain(path):
   return folder.load(path).get_chain()
 #variational NN similar to GP

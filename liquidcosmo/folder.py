@@ -237,6 +237,9 @@ class folder:
           raise Exception("Did not expect parameter '{}' in logfile. This is a bug, please report to the developer".format(q))
         self.logfile['parinfo'][q] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
     self.chain[q] = v
+  def __contains__(self,m):
+    return q in self.names
+
   @property
   def bestfit(self):
     res = self.copy()
@@ -244,6 +247,8 @@ class folder:
     return res
   def __str__(self):
     return "Folder"+self.chain._str_part()
+  def __repr__(self):
+      return self.__str__()
 
   # Basically same as setting a value directly, but also allows passing a function
   def derive(self, name, func, verbose = 0, texname = None):

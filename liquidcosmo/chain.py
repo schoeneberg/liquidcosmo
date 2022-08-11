@@ -68,7 +68,8 @@ class chain:
     if self.N == 1:
       return "["+",".join(str(key) for key in self.names)+"|len="+str(self.N)+"] = ["+",".join(str(self._d[key][0]) for key in self.names)+"]"
     return "["+",".join(str(key) for key in self.names)+"|len="+str(self.N)+"]"
-
+  def __contains__(self,m):
+    return m in self.names
   @property
   def bestfit(self):
     if (self._idx_bestfit is None):
