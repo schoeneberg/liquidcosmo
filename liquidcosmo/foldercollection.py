@@ -1,8 +1,9 @@
+import numpy as np
 from .folder import folder
 class foldercollection:
   
   def __init__(self):
-    self.folderlist = None
+    self.folderlist = []
     
   @classmethod
   def load(obj, *args):
@@ -15,6 +16,9 @@ class foldercollection:
     return a
 
   @property
+  def folen(self):
+    return len(self.folderlist)
+  @property
   def bestfit(self):
     return [f.bestfit for f in self.folderlist]
   @property
@@ -23,6 +27,10 @@ class foldercollection:
   @property
   def chain(self):
     return [f.chain for f in self.folderlist]
+  def copy(self):
+    a = foldercollection()
+    a.folderlist = [f.copy() for f in self.folderlist]
+    return a
   def deepcopy(self):
     a = foldercollection()
     a.folderlist = [f.deepcopy() for f in self.folderlist]
@@ -51,7 +59,7 @@ class foldercollection:
     return [f.get_chain(excludesmall=excludesmall,burnin_threshold=burnin_threshold) for f in self.folderlist]
   def get_masked(self, mask):
     a = self.deepcopy()
-    for i in range(len(a.folderlist)):
+    for i in range(a.folen):
       a.folderlist[i] = a.folderlist[i].get_masked(mask) 
     return a
   @property
@@ -75,12 +83,15 @@ class foldercollection:
       f.subrange(parname=parname, value=value)
     return self
   def write(self, fnames):
-    assert(len(fnames) == len(self.folderlist))
+    assert(len(fnames) == self.folen)
     for i,f in enumerate(self.folderlist):
       f.write(fnames[i])
   @property
   def samples(self):
     return [f.samples for f in self.folderlist]
+  @property
+  def lens(self):
+    return [f.lens for f in self.folderlist]
   def plot_getdist(self,ax=None,**kwargs):
     from getdist.plots import get_subplot_plotter
     gdfolders = [f.to_getdist() for f in self.folderlist]
@@ -88,3 +99,43 @@ class foldercollection:
     spp.triangle_plot(gdfolders,filled=True,**kwargs)
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
+  def __getitem__(self,q):
+    if isinstance(q,(int,np.integer)):
+      return [f[q] for f in self.folderlist]
+    elif not isinstance(q,str):
+      res = foldercollection()
+      flag = False
+      for f in self.folderlist:
+        try:
+          res.folderlist.append(f[q])
+          flag = True
+        except:
+          pass
+      if not flag:
+        raise Exception("Could not find '{}' in any of the folders contained in this collection.".format(q))
+      return res
+    else:
+      res = []
+      flag = False
+      for f in self.folderlist:
+        if q not in f.names:
+          continue
+        else:
+          res.append(f[q])
+          flag = True
+      if not flag:
+        raise Exception("Could not find '{}' in any of the folders contained in this collection.".format(q))
+      return np.array(res)
+  def __setitem__(self,q,v):
+    if isinstance(v,foldercollection):
+      for vi, vf in enumerate(v.folderlist):
+        self.folderlist[vi][q] = vf
+    elif (isinstance(v,list) or type(v) is np.ndarray) and len(v)>0 and (type(v[0]) is np.ndarray) and len(v)==self.folen:
+      for i, f in enumerate(self.folderlist):
+        f[q] = v[i]
+    else:
+      for f in self.folderlist:
+        f[q] = v
+  def __str__(self):
+    return "Folderlist"+str(self.folderlist)
+
