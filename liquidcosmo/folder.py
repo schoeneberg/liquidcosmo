@@ -336,10 +336,10 @@ class folder:
                 afterlist[i] = afterlist[i].strip()
               parinfo[parname]["initial"]=float(afterlist[0])*float(afterlist[4])
               parinfo[parname]["bound"]=[ast.literal_eval(afterlist[1]),ast.literal_eval(afterlist[2])]
-              if parinfo[parname]["bound"][0] is not None:
-                parinfo[parname]["bound"][0]*=float(afterlist[4])
-              if parinfo[parname]["bound"][1] is not None:
-                parinfo[parname]["bound"][1]*=float(afterlist[4])
+              #if parinfo[parname]["bound"][0] is not None:
+              #  parinfo[parname]["bound"][0]*=float(afterlist[4])
+              #if parinfo[parname]["bound"][1] is not None:
+              #  parinfo[parname]["bound"][1]*=float(afterlist[4])
               parinfo[parname]["initialsigma"]=float(afterlist[3])*float(afterlist[4])
               parinfo[parname]["type"]=ast.literal_eval(afterlist[5])
             else:
