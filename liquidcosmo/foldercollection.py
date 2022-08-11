@@ -53,8 +53,15 @@ class foldercollection:
   def d(self):
     return [f.d for f in self.folderlist]
   def derive(self, name, func, verbose = 0, texname = None):
+    flag = False
     for f in self.folderlist:
-      f.derive(name, func, verbose = verbose, texname = texname)
+      try:
+        f.derive(name, func, verbose = verbose, texname = texname)
+        flag = True
+      except KeyError as e:
+        pass
+    if not flag:
+      raise Exception("Could not derive the asked parameter '{}' within any of the underlying folders. Make sure that the function/array you are passing as the 'func' parameter is correct for at least one of the underlying folders.".format(name))
   def get_chain(self,excludesmall=True,burnin_threshold=5):
     return [f.get_chain(excludesmall=excludesmall,burnin_threshold=burnin_threshold) for f in self.folderlist]
   def get_masked(self, mask):
@@ -125,7 +132,7 @@ class foldercollection:
           flag = True
       if not flag:
         raise Exception("Could not find '{}' in any of the folders contained in this collection.".format(q))
-      return np.array(res)
+      return np.array(res,dtype=object)
   def __setitem__(self,q,v):
     if isinstance(v,foldercollection):
       for vi, vf in enumerate(v.folderlist):
