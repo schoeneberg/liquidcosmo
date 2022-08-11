@@ -232,10 +232,10 @@ class folder:
     if isinstance(q,str):
       if not q in self._texnames:
         self._texnames[q] = q
-      if(self.logfile != {}):
-        if q in self.logfile['parinfo']:
-          raise Exception("Did not expect parameter '{}' in logfile. This is a bug, please report to the developer".format(q))
-        self.logfile['parinfo'][q] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
+        if(self.logfile != {}):
+          if q in self.logfile['parinfo']:
+            raise Exception("Did not expect parameter '{}' in logfile. This is a bug, please report to the developer".format(q))
+          self.logfile['parinfo'][q] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
     self.chain[q] = v
   def __contains__(self,m):
     return q in self.names
