@@ -113,7 +113,7 @@ class foldercollection:
           bounds[par] = bound[par]
     for f in res.folderlist:
       for par in bounds:
-        f.set_range(par,bounds[par])
+        f.set_range(par,lower=bounds[par][0],upper=bounds[par][1])
     return res
   def plot_getdist(self,ax=None,colors=None,alphas=None,**kwargs):
     from getdist.plots import get_subplot_plotter
