@@ -234,8 +234,10 @@ class folder:
         self._texnames[q] = q
         if(self.logfile != {}):
           if q in self.logfile['parinfo']:
-            raise Exception("Did not expect parameter '{}' in logfile. This is a bug, please report to the developer".format(q))
-          self.logfile['parinfo'][q] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
+            if not self.logfile['parinfo'][q]['initialsigma']==0:
+              raise Exception("Did not expect parameter '{}' in logfile. This is a bug, please report to the developer".format(q))
+          else:
+            self.logfile['parinfo'][q] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
     self.chain[q] = v
   def __contains__(self,m):
     return q in self.names
