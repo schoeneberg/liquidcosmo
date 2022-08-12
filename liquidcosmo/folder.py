@@ -229,15 +229,18 @@ class folder:
         raise KeyError("Key '{}' not found within the chain".format(q))
       return self.chain[q]
   def __setitem__(self,q,v):
+    empty = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
     if isinstance(q,str):
       if not q in self._texnames:
         self._texnames[q] = q
-        if(self.logfile != {}):
+        if self.logfile != {}:
           if q in self.logfile['parinfo']:
             if not self.logfile['parinfo'][q]['initialsigma']==0:
               raise Exception("Did not expect parameter '{}' in logfile. This is a bug, please report to the developer".format(q))
           else:
-            self.logfile['parinfo'][q] = {'log':0,'initial':1,'bound':[None,None],'initialsigma':1,'type':'derived'}
+            self.logfile['parinfo'][q] = empty
+      elif (self.logfile!={}) and (q not in self.logfile['parinfo']):
+        self.logfile['parinfo'][q] = empty
     self.chain[q] = v
   def __contains__(self,m):
     return q in self.names
