@@ -113,13 +113,12 @@ class foldercollection:
       res = foldercollection()
       flag = False
       for f in self.folderlist:
-        try:
-          res.folderlist.append(f[q])
+        commonset = set(q).intersection(set(f.names))
+        if commonset:
+          res.folderlist.append(f[list(commonset)])
           flag = True
-        except:
-          pass
       if not flag:
-        raise Exception("Could not find '{}' in any of the folders contained in this collection.".format(q))
+        raise Exception("Could not find any of '{}' in any of the folders contained in this collection.".format(q))
       return res
     else:
       res = []
@@ -133,6 +132,21 @@ class foldercollection:
       if not flag:
         raise Exception("Could not find '{}' in any of the folders contained in this collection.".format(q))
       return np.array(res,dtype=object)
+  def keep_only(self,*q):
+    if isinstance(q,(int,np.integer)) or isinstance(q,str):
+      return self[q]
+    else:
+      res = foldercollection()
+      flag = False
+      for f in self.folderlist:
+        try:
+          res.folderlist.append(f[q])
+          flag = True
+        except:
+          pass
+      if not flag:
+        raise Exception("Could not find any of '{}' in any of the folders contained in this collection.".format(q))
+      return res
   def __setitem__(self,q,v):
     if isinstance(v,foldercollection):
       for vi, vf in enumerate(v.folderlist):
