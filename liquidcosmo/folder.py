@@ -458,7 +458,7 @@ class folder:
   def get_bounds(self):
     bounds = {}
     for par in self.names[2:]:
-      bounds[par] = get_range(par)
+      bounds[par] = self.get_range(par)
     return bounds
 
   def set_texname(self,parname,texname):
