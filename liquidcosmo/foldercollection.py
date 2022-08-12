@@ -99,9 +99,9 @@ class foldercollection:
   @property
   def lens(self):
     return [f.lens for f in self.folderlist]
-  def plot_getdist(self,ax=None,colors=None,alphas=None,**kwargs):
-    from getdist.plots import get_subplot_plotter
-    fbounds = [f.get_bounds() for f in self.folderlist]
+  def _readjust_bounds(self):
+    res = self.copy()
+    fbounds = [f.get_bounds() for f in res.folderlist]
     bounds = {}
     for bound in fbounds:
       for par in bound:
@@ -111,11 +111,17 @@ class foldercollection:
           bounds[par] = [minbound,maxbound]
         else:
           bounds[par] = bound[par]
-    gdfolders = [f.to_getdist() for f in self.folderlist]
+    for f in res.folderlist:
+      for par in bounds:
+        f.set_range(par,bounds[par])
+    return res
+  def plot_getdist(self,ax=None,colors=None,alphas=None,**kwargs):
+    from getdist.plots import get_subplot_plotter
+    res = self._readjust_bounds()
+    gdfolders = [f.to_getdist() for f in res.folderlist]
     spp = get_subplot_plotter()
     spp.triangle_plot(gdfolders,filled=True,alphas=alphas,colors=colors,
-      line_args=([{'color':c} for c in colors] if colors else None),
-      param_limits=bounds,**kwargs)
+      line_args=([{'color':c} for c in colors] if colors else None),**kwargs)
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
