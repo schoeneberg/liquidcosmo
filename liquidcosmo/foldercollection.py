@@ -103,7 +103,7 @@ class foldercollection:
     from getdist.plots import get_subplot_plotter
     gdfolders = [f.to_getdist() for f in self.folderlist]
     spp = get_subplot_plotter()
-    spp.triangle_plot(gdfolders,filled=True,alphas=alphas,colors=colors,line_args=[{'color':c} for c in colors],**kwargs)
+    spp.triangle_plot(gdfolders,filled=True,alphas=alphas,colors=colors,line_args=([{'color':c} for c in colors] if colors else None),**kwargs)
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
