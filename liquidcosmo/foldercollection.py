@@ -101,9 +101,21 @@ class foldercollection:
     return [f.lens for f in self.folderlist]
   def plot_getdist(self,ax=None,colors=None,alphas=None,**kwargs):
     from getdist.plots import get_subplot_plotter
+    fbounds = [f.get_bounds() for f in self.folderlist]
+    bounds = {}
+    for bound in fbounds:
+      for par in bound:
+        if par in bounds:
+          minbound = min((x for x in [bound[par],bounds[par]] if x is not None), default=None)
+          maxbound = max((x for x in [bound[par],bounds[par]] if x is not None), default=None)
+          bounds[par] = [minbound,maxbound]
+        else:
+          bounds[par] = bound[par]
     gdfolders = [f.to_getdist() for f in self.folderlist]
     spp = get_subplot_plotter()
-    spp.triangle_plot(gdfolders,filled=True,alphas=alphas,colors=colors,line_args=([{'color':c} for c in colors] if colors else None),**kwargs)
+    spp.triangle_plot(gdfolders,filled=True,alphas=alphas,colors=colors,
+      line_args=([{'color':c} for c in colors] if colors else None),
+      param_limits=bounds,**kwargs)
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):

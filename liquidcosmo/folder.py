@@ -450,6 +450,16 @@ class folder:
   def set_range(self,parname,lower=None,upper=None):
     if self.logfile != {} and parname in self.logfile['parinfo']:
       self.logfile['parinfo'][parname]['bound'] = [lower,upper]
+  def get_range(self,parname):
+    if self.logfile != {} and parname in self.logfile['parinfo']:
+      return self.logfile['parinfo'][parname]['bound']
+    else:
+      return [None,None]
+  def get_bounds(self):
+    bounds = {}
+    for par in self.names[2:]:
+      bounds[par] = get_range(par)
+    return bounds
 
   def set_texname(self,parname,texname):
     if parname in self._texnames:
@@ -517,12 +527,7 @@ class folder:
     from getdist import MCSamples
     sampler = "mcmc" #We could get this from the log.param file
     names = self.names[2:]
-    bounds = {}
-    for par in names:
-      if self.logfile != {} and par in self.logfile['parinfo']:
-        bounds[par] = self.logfile['parinfo'][par]['bound']
-      else:
-        bounds[par] = [None,None]
+    bounds = self.get_bounds()
     mcsamples = MCSamples(
         samples=self.samples.T,
         weights= self.chain._d['N'],
