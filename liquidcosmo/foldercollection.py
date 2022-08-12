@@ -99,11 +99,11 @@ class foldercollection:
   @property
   def lens(self):
     return [f.lens for f in self.folderlist]
-  def plot_getdist(self,ax=None,**kwargs):
+  def plot_getdist(self,ax=None,colors=None,alphas=None,**kwargs):
     from getdist.plots import get_subplot_plotter
     gdfolders = [f.to_getdist() for f in self.folderlist]
     spp = get_subplot_plotter()
-    spp.triangle_plot(gdfolders,filled=True,**kwargs)
+    spp.triangle_plot(gdfolders,filled=True,alphas=alphas,colors=colors,line_args=[{'color':c} for c in colors],**kwargs)
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
