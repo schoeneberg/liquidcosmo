@@ -106,8 +106,8 @@ class foldercollection:
     for bound in fbounds:
       for par in bound:
         if par in bounds:
-          minbound = min((x for x in [bound[par],bounds[par]] if x is not None), default=None)
-          maxbound = max((x for x in [bound[par],bounds[par]] if x is not None), default=None)
+          minbound = min((x for x in [bound[par][0],bounds[par][0]] if x is not None), default=None)
+          maxbound = max((x for x in [bound[par][1],bounds[par][1]] if x is not None), default=None)
           bounds[par] = [minbound,maxbound]
         else:
           bounds[par] = bound[par]
