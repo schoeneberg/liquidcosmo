@@ -449,6 +449,14 @@ class folder:
 
   def set_range(self,parname,lower=None,upper=None):
     if self.logfile != {} and parname in self.logfile['parinfo']:
+      if isinstance(lower,list) or type(lower) is np.ndarray:
+        if upper:
+          raise Exception("Cannot have 'upper!=None' but also 'lower' be a list")
+        elif len(lower)!=2:
+          raise Exception("If you provide a list, it must be exactly 2 elements long")
+        else:
+          upper = lower[1]
+          lower = lower[0]
       self.logfile['parinfo'][parname]['bound'] = [lower,upper]
   def get_range(self,parname):
     if self.logfile != {} and parname in self.logfile['parinfo']:
