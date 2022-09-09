@@ -167,9 +167,9 @@ class folder:
 
     if burnin_threshold>=0:
       import scipy.stats
-      thres = scipy.stats.chi2.ppf(scipy.special.erf(burnin_threshold/np.sqrt(2)),len(arrs))
-      mask = arrs[1]<np.min(arrs[1])+thres/2.
-      arrs = arrs[:,mask]
+      #thres = scipy.stats.chi2.isf(scipy.special.erfc(burnin_threshold/np.sqrt(2)),len(arrs)-2)
+      idx = np.argmax(arrs[1]<np.min(arrs[1])+burnin_threshold)
+      arrs = arrs[:,idx:]
     self._arr = arrs
     return arrs
 
