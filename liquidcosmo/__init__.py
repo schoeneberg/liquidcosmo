@@ -7,6 +7,6 @@ def load(*args,**kwargs):
     return folder.load(args[0],kwargs)
   else:
     return foldercollection.load(*args,**kwargs)
-def load_chain(path):
-  return folder.load(path).get_chain()
+def load_chain(path,**kwargs):
+  return folder.load(path,**kwargs).get_chain()
 #variational NN similar to GP
