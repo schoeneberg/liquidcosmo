@@ -6,13 +6,13 @@ class foldercollection:
     self.folderlist = []
     
   @classmethod
-  def load(obj, *args):
+  def load(obj, *args, **kwargs):
     a = obj()
     if len(args) == 1:
       newargs = args[0]
     else:
       newargs = list(args)
-    a.folderlist = [folder.load(arg) for arg in newargs]
+    a.folderlist = [folder.load(arg,kwargs) for arg in newargs]
     return a
 
   @property
