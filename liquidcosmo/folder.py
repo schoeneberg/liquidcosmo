@@ -160,16 +160,19 @@ class folder:
     filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
     self.lens = np.array([len(fa[0]) for fa in filearr])
     arrs = [[] for i in range(len(filearr[0]))]
+
+    if burnin_threshold >= 0:
+      import scipy.stats
+      #thres = scipy.stats.chi2.isf(scipy.special.erfc(burnin_threshold/np.sqrt(2)),len(arrs)-2)
+      for j in range(len(filearr)):
+        idx = np.argmax(filearr[j][1]<np.min(filearr[j][1])+burnin_threshold)
+        filearr[j] = filearr[j][:,idx:]
+
     for iparam in range(len(filearr[0])):
       for j in range(len(filearr)):
         arrs[iparam] = np.concatenate([arrs[iparam],filearr[j][iparam][:]])
     arrs = np.array(arrs)
 
-    if burnin_threshold>=0:
-      import scipy.stats
-      #thres = scipy.stats.chi2.isf(scipy.special.erfc(burnin_threshold/np.sqrt(2)),len(arrs)-2)
-      idx = np.argmax(arrs[1]<np.min(arrs[1])+burnin_threshold)
-      arrs = arrs[:,idx:]
     self._arr = arrs
     return arrs
 
