@@ -24,6 +24,7 @@ class obj_iterator:
 #from collections import OrderedDict
 class folder:
   def __init__(self):
+    self.verbose = 0
     self._foldername = None
     self._allchains = None
     self._chainprefix = None
@@ -37,6 +38,7 @@ class folder:
   # copy this object
   def copy(self):
     a = folder()
+    a.verbose = self.verbose
     a._foldername = self._foldername
     a._allchains = self._allchains
     a._chainprefix = self._chainprefix
@@ -51,6 +53,7 @@ class folder:
   # deepcopy this object
   def deepcopy(self):
     a = folder()
+    a.verbose = self.verbose
     a._foldername = deepcopy(self._foldername)
     a._allchains = deepcopy(self._allchains)
     a._chainprefix = deepcopy(self._chainprefix)
@@ -64,8 +67,9 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all", burnin_threshold = 5):
+  def load(obj, path, kind="all", burnin_threshold = 5, verbose = 0):
     a = obj()
+    a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix = obj._resolve_chainname(path, kind=kind)
     a.lens = None
     a._texnames = None
@@ -79,7 +83,7 @@ class folder:
   # -- Load a given chain (for a given full filename)
   def __ldchain__(filename,verbose=False):
     if verbose:
-      print("Loading chain {}".format(filename))
+      print("liquidcosmo :: Loading chain {}".format(filename))
     arr = np.genfromtxt(filename).T
     return arr
 
@@ -158,15 +162,24 @@ class folder:
     pool.join()
 
     filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
-    self.lens = np.array([len(fa[0]) for fa in filearr])
     arrs = [[] for i in range(len(filearr[0]))]
 
     if burnin_threshold >= 0:
       import scipy.stats
+      total_removed = 0
+      total_len = 0
       #thres = scipy.stats.chi2.isf(scipy.special.erfc(burnin_threshold/np.sqrt(2)),len(arrs)-2)
       for j in range(len(filearr)):
         idx = np.argmax(filearr[j][1]<np.min(filearr[j][1])+burnin_threshold)
         filearr[j] = filearr[j][:,idx:]
+        total_removed += idx
+        total_len += len(filearr[j][0])
+
+      if self.verbose > 0:
+        print("liquidcosmo :: Removed burnin [%i/%i] for chain in folder '%s'."%(total_removed,total_len,self._foldername))
+
+    self.lens = np.array([len(fa[0]) for fa in filearr])
+
 
     for iparam in range(len(filearr[0])):
       for j in range(len(filearr)):
@@ -178,7 +191,7 @@ class folder:
 
   # -- Get dictionary of all parameters in .paramnames file --
   # Returns a dictionary with parameter name and index
-  def _load_names(self,verbose=0):
+  def _load_names(self):
     retdict = {}
     texdict = {'N':'Multiplicity','lnp':'-\\ln(\\mathcal{L})'}
     index = 2
@@ -187,8 +200,8 @@ class folder:
       while line:
         texname = " ".join(line.split()[1:]).strip()
         paramname = line.split()[0].strip()
-        if verbose>=1:
-          print("Param {} was found at index {}".format(paramname,index))
+        if self.verbose>2:
+          print("liquidcosmo :: Param {} was found at index {}".format(paramname,index))
         retdict[paramname]=index
         texdict[paramname] = texname
         index+=1
@@ -259,9 +272,9 @@ class folder:
       return self.__str__()
 
   # Basically same as setting a value directly, but also allows passing a function
-  def derive(self, name, func, verbose = 0, texname = None):
-    if verbose > 0:
-      print("Deriving new parameter "+name)
+  def derive(self, name, func, texname = None):
+    if self.verbose > 1:
+      print("liquidcosmo :: Deriving new parameter "+name)
     self._texnames[name] = (name if texname is None else texname)
     if isinstance(func,(list,tuple,np.ndarray)):
       self[name] = func
@@ -305,7 +318,7 @@ class folder:
 
   # -- Get all content of a log file capturing important information about the sampling process
   # -- Currently, only montepython log.param files are supported
-  def _read_log(self,verbose=0):
+  def _read_log(self):
     self._log = {}
     try:
       loginfo ={'path':{}}
@@ -382,7 +395,7 @@ class folder:
           else:
             raise Exception("Unrecognized line in log.param :\n",repr(line))
           line = logfile.readline()
-      if verbose>0:
+      if self.verbose>2:
         print("loginfo = ",loginfo)
         print("parinfo = ",parinfo)
         print("arginfo = ",arginfo)
@@ -538,11 +551,12 @@ class folder:
   def to_getdist(self):
     # No logging of warnings temporarily, so getdist won't complain unnecessarily
     #extend using https://github.com/cmbant/getdist/blob/master/getdist/cobaya_interface.py
-    from getdist import MCSamples
+    import getdist
+    getdist.chains.print_load_details = False
     sampler = "mcmc" #We could get this from the log.param file
     names = self.names[2:]
     bounds = self.get_bounds()
-    mcsamples = MCSamples(
+    mcsamples = getdist.MCSamples(
         samples=self.samples.T,
         weights= self.chain._d['N'],
         loglikes=self.chain._d['lnp'],

@@ -52,11 +52,11 @@ class foldercollection:
   @property
   def d(self):
     return [f.d for f in self.folderlist]
-  def derive(self, name, func, verbose = 0, texname = None):
+  def derive(self, name, func, texname = None):
     flag = False
     for f in self.folderlist:
       try:
-        f.derive(name, func, verbose = verbose, texname = texname)
+        f.derive(name, func, texname = texname)
         flag = True
       except KeyError as e:
         pass
