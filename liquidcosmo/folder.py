@@ -67,7 +67,7 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all", burnin_threshold = 5, verbose = 0):
+  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0):
     a = obj()
     a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix = obj._resolve_chainname(path, kind=kind)
@@ -139,7 +139,7 @@ class folder:
       raise Exception("Kind can either be 'all' or 'newest'")
 
   # -- Load all points from folder -- 
-  def _get_array(self,excludesmall=True,burnin_threshold=2):
+  def _get_array(self,excludesmall=True,burnin_threshold=3):
     if self._arr is not None:
       return self._arr
 

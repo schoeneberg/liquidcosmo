@@ -62,7 +62,7 @@ class foldercollection:
         pass
     if not flag:
       raise Exception("Could not derive the asked parameter '{}' within any of the underlying folders. Make sure that the function/array you are passing as the 'func' parameter is correct for at least one of the underlying folders.".format(name))
-  def get_chain(self,excludesmall=True,burnin_threshold=5):
+  def get_chain(self,excludesmall=True,burnin_threshold=3):
     return [f.get_chain(excludesmall=excludesmall,burnin_threshold=burnin_threshold) for f in self.folderlist]
   def get_masked(self, mask):
     a = self.deepcopy()
