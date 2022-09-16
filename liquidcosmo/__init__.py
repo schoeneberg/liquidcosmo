@@ -9,4 +9,6 @@ def load(*args,**kwargs):
     return foldercollection.load(*args,**kwargs)
 def load_chain(path,**kwargs):
   return folder.load(path,**kwargs).get_chain()
+def load_manually(paths,**kwargs):
+  return folder.load_manually(path,**kwargs)
 #variational NN similar to GP
