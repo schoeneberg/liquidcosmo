@@ -621,4 +621,6 @@ class folder:
     from getdist.plots import get_subplot_plotter
     gdfolder = self.to_getdist()
     spp = get_subplot_plotter()
-    spp.triangle_plot([gdfolder],filled=kwargs.get('filled',True))
+    if filled not in kwargs:
+      kwargs['filled'] = True
+    spp.triangle_plot([gdfolder],**kwargs)
