@@ -617,8 +617,8 @@ class folder:
         ranges={par:bounds[par] for par in names})
     return mcsamples
 
-  def plot_getdist(self,ax=None):
+  def plot_getdist(self,ax=None,**kwargs):
     from getdist.plots import get_subplot_plotter
     gdfolder = self.to_getdist()
     spp = get_subplot_plotter()
-    spp.triangle_plot([gdfolder],filled=True)
+    spp.triangle_plot([gdfolder],filled=kwargs.get('filled',True))
