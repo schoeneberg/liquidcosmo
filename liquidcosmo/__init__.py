@@ -1,7 +1,7 @@
+from .matplotlib_defaults import initialize_plots
+initialize_plots()
 from .folder import folder
 from .foldercollection import foldercollection
-from .matplotlib_defaults import matplotlib_defaults
-matplotlib_defaults()
 def load(*args,**kwargs):
   if len(args)==1 and isinstance(args[0],str):
     return folder.load(args[0],kwargs)

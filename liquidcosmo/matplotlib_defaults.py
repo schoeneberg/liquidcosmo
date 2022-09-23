@@ -1,5 +1,8 @@
 import matplotlib as mpl
-def matplotlib_defaults(rwth_colors=3, backend=None, update_tex=True, update_size = [10,12,14]):
+
+default_colors = None
+default_settings = None
+def matplotlib_defaults(rwth_colors=4, backend=None, update_tex=True, update_size = [10,12,14]):
 
   # If required, set backend
   if backend:
@@ -58,12 +61,33 @@ def matplotlib_defaults(rwth_colors=3, backend=None, update_tex=True, update_siz
   RWTHcolors = {'Red':['#E37C80','#CE121F'],'Blue':['#7A98F6','#1157EF'],'Green':['#88B27A','#297C09'],'Orange':['#F3BE82','#ED920F'],'Grey':['#ABABAB','#737373'],'Purple':['#B87294','#88004C']}
   RWTHcolors_DCH = {'Red':['#E69679','#CC071E'],'Blue':['#8EBAE5','#00549F'],'Green':['#B8D698', '#57AB27'],'Orange':['#FDD48F','#F6A800'], 'Purple':['#BCB5D7','#7A6FAC'],'Grey':['#ABABAB','#737373'],'Black':['#646567','#9C9E9F'],'Turk':['#0098A1','#89CCCF']}  
   rwth_array3 = [RWTHcolors_DCH[c][0] for c in ['Red','Blue','Green','Orange','Purple','Grey','Turk','Black']]
+
+  Ccolors = {'Red':'#C9031A','Blue':'#00519E','Green':'#57AB26', 'Orange':'#F5A600', 'Purple':'#786EAB', 'Grey':'#919191', 'DarkBlue':'#000688'}
+  rwth_array4 = [Ccolors[c] for c in Ccolors.keys()]
+  selected_colors = None
   if rwth_colors == 1:
-    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=rwth_array) 
+    selected_colors = rwth_array
   elif rwth_colors == 2:
-    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=rwth_array2)
+    selected_colors = rwth_array2
   elif rwth_colors == 3:
-    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=rwth_array3)
+    selected_colors = rwth_array3
+  elif rwth_colors == 4:
+    selected_colors = rwth_array4
   else:
-    raise Exception("rwth_colors option can only be 1 or 2 or 3")
+    raise Exception("rwth_colors option can only be 1 or 2 or 3 or 4")
+  mpl.rcParams['axes.prop_cycle']  = mpl.cycler(color=selected_colors)
+  default_colors = selected_colors
+  return selected_colors
+
+def initialize_plots(**kwargs):
+  global default_settings
+  colors = matplotlib_defaults(**kwargs)
+  import getdist.plots
+  gdplotsettings = getdist.plots.GetDistPlotSettings()
+  gdplotsettings.solid_colors = colors
+  gdplotsettings.solid_contour_palefactor = 0.5
+  gdplotsettings.linewidth_contour = 2.0
+  gdplotsettings.linewidth = 2.0
+  default_settings = gdplotsettings
+  return gdplotsettings
 

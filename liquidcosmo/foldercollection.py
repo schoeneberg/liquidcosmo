@@ -1,5 +1,6 @@
 import numpy as np
 from .folder import folder
+from .matplotlib_defaults import default_settings
 class foldercollection:
   
   def __init__(self):
@@ -119,7 +120,7 @@ class foldercollection:
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     gdfolders = [f.to_getdist() for f in res.folderlist]
-    spp = get_subplot_plotter()
+    spp = get_subplot_plotter(settings=default_settings)
     if 'filled' not in kwargs:
       kwargs['filled']=True
     spp.triangle_plot(gdfolders,alphas=alphas,colors=colors,

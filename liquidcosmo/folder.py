@@ -7,6 +7,7 @@ import ast
 from datetime import date
 from collections import OrderedDict
 from copy import deepcopy
+from .matplotlib_defaults import default_settings
 
 class obj_iterator:
   def __init__(self,obj):
@@ -620,7 +621,7 @@ class folder:
   def plot_getdist(self,ax=None,**kwargs):
     from getdist.plots import get_subplot_plotter
     gdfolder = self.to_getdist()
-    spp = get_subplot_plotter()
+    spp = get_subplot_plotter(settings=default_settings)
     if 'filled' not in kwargs:
       kwargs['filled'] = True
     spp.triangle_plot([gdfolder],**kwargs)
