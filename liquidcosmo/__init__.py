@@ -18,7 +18,7 @@ def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmau
   spp = getdist_plotter_instance
   if (sigmalower or sigmaupper) and sigma:
     raise Exception("Cannot pass 'sigma' and either of 'sigmalower' or 'sigmaupper'")
-  else if sigma:
+  elif sigma:
     sigmalower = sigma
     sigmaupper = sigma
   high = mean + sigmaupper
