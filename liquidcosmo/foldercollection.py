@@ -125,6 +125,7 @@ class foldercollection:
       kwargs['filled']=True
     spp.triangle_plot(gdfolders,alphas=alphas,colors=colors,
       line_args=([{'color':c} for c in colors] if colors else None),**kwargs)
+    return spp
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
