@@ -27,7 +27,7 @@ def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmau
   newsig = 0.5*(high-low)
 
   for i in range(len(all_parnames)):
-    index = all_parnames.index(parname)
+    index = all_parnames.index(paramname)
     if i < index:
         spp.add_y_bands(newmean, newsig, color=color, ax=spp.subplots[index,i], alpha1=alpha1, alpha2=alpha2, label = label,zorder=-2)
     if i > index:
