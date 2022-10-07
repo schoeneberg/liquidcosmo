@@ -14,7 +14,7 @@ def load_manually(paths,**kwargs):
 #variational NN similar to GP
 
 # TODO :: Update this method
-def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmaupper = None, sigmalower = None, sigma = None, label=None, alpha1=0.3, alhpa2=0.2, color="grey"):
+def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmaupper = None, sigmalower = None, sigma = None, label=None, alpha1=0.3, alpha2=0.2, color="grey"):
   spp = getdist_plotter_instance
   if (sigmalower or sigmaupper) and sigma:
     raise Exception("Cannot pass 'sigma' and either of 'sigmalower' or 'sigmaupper'")
