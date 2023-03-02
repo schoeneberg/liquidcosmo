@@ -116,15 +116,17 @@ class foldercollection:
       for par in bounds:
         f.set_range(par,lower=bounds[par][0],upper=bounds[par][1])
     return res
-  def plot_getdist(self,ax=None,colors=None,alphas=None,**kwargs):
+  def plot_getdist(self,ax=None,colors=None,alphas=None,add_point=None,**kwargs):
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     gdfolders = [f.to_getdist() for f in res.folderlist]
-    spp = get_subplot_plotter(settings=default_settings)
     if 'filled' not in kwargs:
-      kwargs['filled']=True
+      kwargs['filled'] = True
+    spp = get_subplot_plotter(settings=default_settings)
     spp.triangle_plot(gdfolders,alphas=alphas,colors=colors,
       line_args=([{'color':c} for c in colors] if colors else None),**kwargs)
+    # Delegate to first folder, to use same function
+    self.folderlist[0]._add_point(spp,add_point,names=self.common_names)
     return spp
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]

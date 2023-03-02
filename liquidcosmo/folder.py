@@ -91,6 +91,7 @@ class folder:
   # -- Resolve the chain names of chains -- 
   @classmethod
   def _resolve_chainname(obj,path,kind="all"):
+    print("TRYING path = ",path)
     if os.path.isfile(path):
       folder = os.path.dirname(path)
       allchains = [path]
@@ -618,10 +619,62 @@ class folder:
         ranges={par:bounds[par] for par in names})
     return mcsamples
 
-  def plot_getdist(self,ax=None,**kwargs):
+  def plot_getdist(self, ax=None,color=None,add_point=None,**kwargs):
     from getdist.plots import get_subplot_plotter
     gdfolder = self.to_getdist()
     spp = get_subplot_plotter(settings=default_settings)
     if 'filled' not in kwargs:
       kwargs['filled'] = True
-    spp.triangle_plot([gdfolder],**kwargs)
+    spp.triangle_plot([gdfolder],colors=[color],
+      line_args=({'color':c} if color else None), **kwargs)
+    self._add_point(spp,add_point)
+
+  def _add_point(self, spp, add_point, names=None,zorder=None):
+    if names==None:
+      names = self.names
+    from getdist.plots import ParamInfo
+    def __check_arg(arg):
+      exception_text = "Argument 'add_point' needs to be a dictionary, containing a value, or containing lists of [value, color] or [mean, sigma, color] -- you provided '{}'.".format(arg)
+      if not isinstance(arg,list):
+        arg = [arg]
+      if len(arg)<1 or len(arg)>3:
+        raise Exception(exception_text+" Invalid length!")
+      elif len(arg)==1:
+        return True, arg[0], 'grey'
+      elif len(arg)==2:
+        if not isinstance(arg[1],str):
+          raise Exception(exception_text+" Invalid color!")
+        return True, arg[0], arg[1]
+      elif len(arg)==3:
+        if not isinstance(arg[2],str):
+          raise Exception(exception_text+" Invalid color!")
+        return False, arg[0], arg[1], arg[2]
+    flag = False
+    # Iterate over all plotted subplots
+    for i, subplot_arr in enumerate(spp.subplots):
+      for j, subplot in enumerate(subplot_arr):
+        if subplot != None:
+          paramnames_for_subplot = [p.name if isinstance(p, ParamInfo) else p for p in subplot.getdist_params]
+          if len(paramnames_for_subplot)>1: # Non-diagonal
+            xparam, yparam = paramnames_for_subplot
+          else: # Diagonal
+            xparam = paramnames_for_subplot[0]
+            yparam = None
+          for name in add_point:
+            arg = __check_arg(add_point[name])
+            if xparam == name:
+              if arg[0]:
+                spp.add_x_marker(arg[1],color=arg[2],ax=[i,j],zorder=zorder)
+              else:
+                if yparam:
+                  spp.add_x_bands(arg[1],arg[2],color=arg[3],ax=[i,j],zorder=zorder)
+              flag = True
+            if yparam == name:
+              if arg[0]:
+                spp.add_y_marker(arg[1],color=arg[2],ax=[i,j],zorder=zorder)
+              else:
+                spp.add_y_bands(arg[1],arg[2],color=arg[3],ax=[i,j],zorder=zorder)
+              flag = True
+    if not flag:
+      raise Exception("Could not find any of '{}' parameters in the generated plot provided as the 'spp' argument.".format(add_point.keys()))
+    return
