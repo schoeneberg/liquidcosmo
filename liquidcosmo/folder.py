@@ -91,7 +91,6 @@ class folder:
   # -- Resolve the chain names of chains -- 
   @classmethod
   def _resolve_chainname(obj,path,kind="all"):
-    print("TRYING path = ",path)
     if os.path.isfile(path):
       folder = os.path.dirname(path)
       allchains = [path]
