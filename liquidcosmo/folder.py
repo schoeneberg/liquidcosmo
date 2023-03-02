@@ -493,7 +493,7 @@ class folder:
             for k in list(arr.keys())[2:]:
               ofile.write("%.6e\t"%arr[k][j])
             ofile.write("\n")
-      with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.parnames"),"w") as ofile:
+      with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.paramnames"),"w") as ofile:
         for k in self.names[2:]:
           ofile.write("{} {}\n".format(k,self._texnames[k]))
       if self.logfile != {}:
