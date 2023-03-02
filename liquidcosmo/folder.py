@@ -629,6 +629,8 @@ class folder:
     self._add_point(spp,add_point)
 
   def _add_point(self, spp, add_point, names=None,zorder=None):
+    if spp==None or add_point==None:
+      return
     if names==None:
       names = self.names
     from getdist.plots import ParamInfo
