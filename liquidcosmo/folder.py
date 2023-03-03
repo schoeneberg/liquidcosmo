@@ -574,15 +574,15 @@ class folder:
         obj = obj.subrange(p, v)
       return obj
 
-  def mean(self,parname=None):
-    if isinstance(parname,str):
-      return self._parmean(parname)
-    elif isinstance(parname,(list,tuple)):
-      return np.array([self._parmean(q) for q in parname])
-    elif parname is None:
+  def mean(self,parnames=None):
+    if isinstance(parnames,str):
+      return self._parmean(parnames)
+    elif isinstance(parnames,(list,tuple)):
+      return np.array([self._parmean(q) for q in parnames])
+    elif parnames is None:
       return np.array([self._parmean(q) for q in self.names[2:]])
     else:
-      raise Exception("Input to mean '{}' not recognized.".format(parname))
+      raise Exception("Input to mean '{}' not recognized.".format(parnames))
 
   def cov(self,parnames=None):
     if isinstance(parnames,str):
@@ -597,8 +597,75 @@ class folder:
   def _parmean(self,parname):
     return np.average(self[parname],weights=self['N'])
   def _parcov(self,parnames):
+    if self.N==1:
+      raise Exception("Cannot compute covariance of a chain with only a single point!")
     return np.cov([self[parname] for parname in parnames],fweights=self['N'])
 
+  def subdivide(self, subdivisions=None, threshold_min_subdivision=100):
+    custom_subdivision = False
+    if subdivisions == None:
+      subdivisions = 10
+    elif not isinstance(subdivisions,int):
+      raise Exception("The subdivisions argument for subdivide has to be an integer value. You provided '{}'".format(subdivisions))
+    else:
+      custom_subdivision = True
+
+    if len(self.lens)>1:
+      n_sufficiently_long = np.count_nonzero(self.lens>=threshold_min_subdivision)
+      if n_sufficiently_long<1:
+        raise Exception("All subdivisions would have sizes below the minimum size allowed '{}'".format(threshold_min_subdivision))
+      # If only one of the chains in the folder is long enough, fall back to the single-chain algorithm
+      elif n_sufficiently_long == 1:
+        custom_subdivision = True
+    subfolders = []
+    count = 0
+    # If only a single folder is present, or if the subdivisions argument has been explicitly set, subdivide differently
+    if len(self.lens)==1 or custom_subdivision:
+      sublens = np.empty(subdivisions,dtype=int)
+      c_per_file = self.N//subdivisions
+      remainder = self.N-subdivisions*c_per_file
+      if c_per_file < threshold_min_subdivision:
+        raise Exception("All subdivisions would have sizes of '{}', while the minimum size allowed is '{}'".format(c_per_file, threshold_min_subdivision))
+      for i in range(subdivisions):
+        sublens[i] = c_per_file + (1 if remainder>0 else 0)
+        if remainder > 0:
+          remainder -= 1
+      for lvar in sublens:
+        subfolders.append(self[count:count+lvar])
+        count+=lvar
+    else:
+      for lvar in self.lens:
+        # Ignore small chains with less than threshold_min_subdivision points (we checked above, that there are at least two of these)
+        if lvar >= threshold_min_subdivision:
+          subfolders.append(self[count:count+lvar])
+        count+=lvar
+    return subfolders
+
+  def gelman(self, parnames=None, subdivisions=None):
+    totN = self.N
+    totmean = self.mean(parnames=parnames)
+    subfolders = self.subdivide(subdivisions=subdivisions)
+    means = np.array([sf.mean(parnames=parnames) for sf in subfolders])
+    varias = np.array([np.sqrt(np.diag(sf.cov(parnames=parnames))) for sf in subfolders])
+    Ns = np.array([sf.N for sf in subfolders])
+    # These should be at least as large as threhsold_min_subdivision of the subdivide method
+    W = np.sum(Ns*varias.T,axis=-1)/totN
+    B = np.sum(Ns*((means-totmean)**2).T,axis=-1)/(totN-1.)
+    R = np.abs(B/W)
+    return {n:R[i] for i,n in enumerate(self.names[2:])}
+
+  def max_gelman(self, subdivisions=None):
+    subfolders = self.subdivide(subdivisions=subdivisions)
+    means = np.array([sf.mean() for sf in subfolders])
+    covs = np.array([sf.cov() for sf in subfolders])
+    Ns = np.array([sf.N for sf in subfolders])
+
+    mean_of_covs = np.average(covs, weights=Ns, axis=0)
+    cov_of_means = np.cov(means.T)#, fweights=Ns) <-- No weighting for increased stability against short outlier chains
+    L = np.linalg.cholesky(mean_of_covs)
+    Linv = np.linalg.inv(L)
+    eigvals = np.linalg.eigvalsh(Linv.dot(cov_of_means).dot(Linv.T))
+    return np.max(np.abs(eigvals))
 
   def to_getdist(self):
     # No logging of warnings temporarily, so getdist won't complain unnecessarily

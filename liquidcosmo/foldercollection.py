@@ -94,6 +94,10 @@ class foldercollection:
     assert(len(fnames) == self.folen)
     for i,f in enumerate(self.folderlist):
       f.write(fnames[i])
+  def gelman(self, parnames=None,subdivisions=None):
+    return [f.gelman(parnames=parnames,subdivisions=subdivisions) for f in self.folderlist]
+  def max_gelman(self, subdivisions=None):
+    return [f.max_gelman(subdivisions=subdivisions) for f in self.folderlist]
   @property
   def samples(self):
     return [f.samples for f in self.folderlist]
