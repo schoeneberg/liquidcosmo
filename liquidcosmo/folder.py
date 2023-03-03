@@ -652,7 +652,7 @@ class folder:
     W = np.sum(Ns*varias.T,axis=-1)/totN
     B = np.sum(Ns*((means-totmean)**2).T,axis=-1)/(totN-1.)
     R = np.abs(B/W)
-    return {n:R[i] for i,n in enumerate(self.names[2:])}
+    return {n:R[i] for i,n in enumerate((parnames if parnames!=None else self.names[2:]))}
 
   def max_gelman(self, subdivisions=None):
     subfolders = self.subdivide(subdivisions=subdivisions)
