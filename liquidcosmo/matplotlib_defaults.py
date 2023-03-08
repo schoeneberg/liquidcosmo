@@ -62,8 +62,14 @@ def matplotlib_defaults(rwth_colors=4, backend=None, update_tex=True, update_siz
   RWTHcolors_DCH = {'Red':['#E69679','#CC071E'],'Blue':['#8EBAE5','#00549F'],'Green':['#B8D698', '#57AB27'],'Orange':['#FDD48F','#F6A800'], 'Purple':['#BCB5D7','#7A6FAC'],'Grey':['#ABABAB','#737373'],'Black':['#646567','#9C9E9F'],'Turk':['#0098A1','#89CCCF']}  
   rwth_array3 = [RWTHcolors_DCH[c][0] for c in ['Red','Blue','Green','Orange','Purple','Grey','Turk','Black']]
 
+  # Works quite well in general, has a nice look to it. Also looks nice in greyscale, actually.
   Ccolors = {'Red':'#C9031A','Blue':'#00519E','Green':'#57AB26', 'Orange':'#F5A600', 'Purple':'#786EAB', 'Grey':'#919191', 'DarkBlue':'#000688'}
   rwth_array4 = [Ccolors[c] for c in Ccolors.keys()]
+
+  # Specifically for colorblind people
+  CB_colors = {'Blue':'#377eb8', 'Orange':'#ff7f00', 'Green':'#4daf4a', 'Pink':'#f781bf', 'Brown':'#a65628', 'Purple':'#984ea3','Grey':'#999999', 'Red':'#e41a1c', 'Yellow':'#dede00'}
+  rwth_array5 = [CB_colors[c] for c in CB_colors.keys()]
+
   selected_colors = None
   if rwth_colors == 1:
     selected_colors = rwth_array
@@ -73,13 +79,15 @@ def matplotlib_defaults(rwth_colors=4, backend=None, update_tex=True, update_siz
     selected_colors = rwth_array3
   elif rwth_colors == 4:
     selected_colors = rwth_array4
+  elif rwth_colors == 5:
+    selected_colors = rwth_array5
   else:
     raise Exception("rwth_colors option can only be 1 or 2 or 3 or 4")
   mpl.rcParams['axes.prop_cycle']  = mpl.cycler(color=selected_colors)
   default_colors = selected_colors
   return selected_colors
 
-def initialize_plots(**kwargs):
+def initialize_plots(legend_frame = True, legend_fontsize = 15, axes_fontsize = 15, axes_labelsize = 20, **kwargs):
   global default_settings
   colors = matplotlib_defaults(**kwargs)
   import getdist.plots
@@ -88,6 +96,13 @@ def initialize_plots(**kwargs):
   gdplotsettings.solid_contour_palefactor = 0.5
   gdplotsettings.linewidth_contour = 2.0
   gdplotsettings.linewidth = 2.0
+  gdplotsettings.legend_fontsize = legend_fontsize
+  gdplotsettings.axes_fontsize = axes_fontsize
+  gdplotsettings.axes_labelsize = axes_labelsize
   default_settings = gdplotsettings
+
+  if not legend_frame:
+    g.settings.figure_legend_frame = False
+
   return gdplotsettings
 
