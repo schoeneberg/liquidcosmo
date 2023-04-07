@@ -746,3 +746,49 @@ class folder:
     if not flag:
       raise Exception("Could not find any of '{}' parameters in the generated plot provided as the 'spp' argument.".format(add_point.keys()))
     return
+
+  def to_class_dict(self):
+    names = self.names[2:]
+    samples = self.samples
+    if self.logfile != {}:
+      arginfo = self.logfile['arginfo']
+      parinfo = self.logfile['parinfo']
+      # Make sure for the class_dict to only copy the cosmo arguments, not nuisance or derived
+      newnames= []
+      newsamples = []
+      for par in parinfo:
+        if(parinfo[par]['type']=='cosmo'):
+          try:
+            ipar = np.nonzero([name==par for name in names])[0][0]
+          except IndexError as ie:
+            #Very specific fallback for the 100*theta_s -> 100theta_s readability change in MPv3
+            if par=='100*theta_s':
+              ipar = np.nonzero([name=='100theta_s' for name in names])[0][0]
+            else:
+              raise
+          newnames.append(par)
+          newsamples.append(samples[ipar])
+      names = newnames
+      samples = np.array(newsamples).T
+    else:
+      arginfo = {}
+      samples = samples.T
+    retlist = []
+    # By defining the dict here, we can reuse it in the loop, saving computational time
+    retdict = arginfo.copy()
+    retdict.update({name:samples[0][iname] for iname,name in enumerate(names)})
+    retlist.append(retdict)
+    for i in range(1,self.N):
+      retdict.update({name:samples[i][iname] for iname,name in enumerate(names)})
+      retlist.append(retdict.copy())
+    if self.N==1:
+      retlist = retlist[0]
+    return retlist
+
+  def to_class_ini(self,filename):
+    if self.N != 1:
+      raise Exception("Cannot convert a chain file with more than one point to a CLASS ini file")
+    inidict = self.to_class_dict()
+    with open(filename,"w+") as f:
+      for key in inidict:
+        f.write("{}={}\n".format(key,inidict[key]))
