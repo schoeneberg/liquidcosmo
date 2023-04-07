@@ -9,6 +9,10 @@ from collections import OrderedDict
 from copy import deepcopy
 from .matplotlib_defaults import default_settings
 
+class _lq_code_type:
+  montepython = 0
+  cobaya = 1
+
 class obj_iterator:
   def __init__(self,obj):
     self.current = 0
@@ -29,6 +33,7 @@ class folder:
     self._foldername = None
     self._allchains = None
     self._chainprefix = None
+    self._code = None
     self.lens = None
     self._texnames = None
     self._arr = None
@@ -43,6 +48,7 @@ class folder:
     a._foldername = self._foldername
     a._allchains = self._allchains
     a._chainprefix = self._chainprefix
+    a._code = self._code
     a.lens = self.lens
     a._texnames = self._texnames
     a._arr = self._arr
@@ -58,6 +64,7 @@ class folder:
     a._foldername = deepcopy(self._foldername)
     a._allchains = deepcopy(self._allchains)
     a._chainprefix = deepcopy(self._chainprefix)
+    a._code = deepcopy(self._code)
     a.lens = deepcopy(self.lens)
     a._texnames = deepcopy(self._texnames)
     a._arr = deepcopy(self._arr)
@@ -71,7 +78,7 @@ class folder:
   def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0):
     a = obj()
     a.verbose = verbose
-    a._foldername, a._allchains, a._chainprefix = obj._resolve_chainname(path, kind=kind)
+    a._foldername, a._allchains, a._chainprefix, a._code = obj._resolve_chainname(path, kind=kind)
     a.lens = None
     a._texnames = None
     a._arr = None
@@ -88,58 +95,74 @@ class folder:
     arr = np.genfromtxt(filename).T
     return arr
 
-  # -- Resolve the chain names of chains -- 
+  # -- Resolve the chain names of chains --
   @classmethod
   def _resolve_chainname(obj,path,kind="all"):
     if os.path.isfile(path):
       folder = os.path.dirname(path)
       allchains = [path]
-      prefix = path.split("__")[0]
     elif os.path.isdir(os.path.join("chains",path)):
       folder = os.path.join("chains",path)
-      allchains = obj._get_chainnames(folder,kind=kind)
-      prefix = allchains[0].split("__")[0]
+      allchains, code = obj._get_chainnames(folder,kind=kind)
     elif os.path.isdir(path):
       folder = path
-      allchains = obj._get_chainnames(folder,kind=kind)
-      prefix = allchains[0].split("__")[0]
+      allchains, code = obj._get_chainnames(folder,kind=kind)
+      prefix = obj._resolve_prefix(allchains[0])
     elif os.path.exists(os.path.join("chains",path)):
       folder = os.path.dirname(os.path.join("chains",path))
-      allchains = obj._get_chainnames(folder,kind=kind)
-      prefix = allchains[0].split("__")[0]
+      allchains, code = obj._get_chainnames(folder,kind=kind)
+      prefix = obj._resolve_prefix(allchains[0])
     elif os.path.exists(os.path.join("chains",path+"__1.txt")):
       folder = os.path.dirname(os.path.join("chains",path+"__1.txt"))
-      allchains = obj._get_chainnames(folder,kind=kind)
+      allchains, code = obj._get_chainnames(folder,kind=kind)
       allchains = [ch for ch in allchains if path in ch]
-      prefix = allchains[0].split("__")[0]
+      prefix = obj._resolve_prefix(allchains[0])
     else:
       folder = os.path.dirname(path)
       if folder=="":
         raise Exception("Could not find a chain from : "+path)
       allchains = obj._get_chainnames(folder,kind=kind)
-      prefix = allchains[0].split("__")[0]
-    return folder,allchains,prefix
+    prefix = obj._resolve_prefix(allchains[0])
+    return folder,allchains,prefix,code
 
+  @classmethod
+  def _resolve_prefix(obj, path):
+    if "__" in path:
+      return path.split("__")[0]
+    elif ".txt" in path:
+      return "".join(path.split(".")[:-2])
+    else:
+      raise Exception("Unrecognized path for prefix recognition (please report to developer): "+str(path))
   # -- Get the names of the given chains
   @classmethod
   def _get_chainnames(obj,directory,kind="newest"):
 
     # Check all files in directory
     allfilenames  = os.listdir(directory)
-    chain_targets = [chain for chain in allfilenames if "__" in chain]
 
-    if kind=="newest":    
+    # Detect the code, for now only montepython and cobaya are supported
+    if np.any(["__" in chain for chain in allfilenames]):
+      code = _lq_code_type.montepython
+      chain_targets = [chain for chain in allfilenames if "__" in chain]
+      delim = "__"
+    else:
+      code = _lq_code_type.cobaya
+      chain_targets = [chain for chain in allfilenames if ".txt" in chain]
+
+    if kind=="newest" and code== _lq_code_type.montepython:
       chain_targets = np.sort(chain_targets)[::-1]
       newest_chain_dates = chain_targets[0].split("__")[0]
-      return [os.path.join(directory,chain) for chain in chain_targets if newest_chain_dates in chain]
-    
+      allchains= [os.path.join(directory,chain) for chain in chain_targets if newest_chain_dates in chain]
+
     elif kind=="all":
-      return [os.path.join(directory,chain) for chain in chain_targets]
+      allchains= [os.path.join(directory,chain) for chain in chain_targets]
 
     else:
       raise Exception("Kind can either be 'all' or 'newest'")
 
-  # -- Load all points from folder -- 
+    return allchains, code
+
+  # -- Load all points from folder --
   def _get_array(self,excludesmall=True,burnin_threshold=3):
     if self._arr is not None:
       return self._arr
@@ -196,17 +219,28 @@ class folder:
     retdict = {}
     texdict = {'N':'Multiplicity','lnp':'-\\ln(\\mathcal{L})'}
     index = 2
-    with open(self._chainprefix+"_.paramnames") as parnames:  
-      line = parnames.readline()
-      while line:
-        texname = " ".join(line.split()[1:]).strip()
-        paramname = line.split()[0].strip()
-        if self.verbose>2:
-          print("liquidcosmo :: Param {} was found at index {}".format(paramname,index))
-        retdict[paramname]=index
-        texdict[paramname] = texname
-        index+=1
+    if self._code == _lq_code_type.montepython:
+      with open(self._chainprefix+"_.paramnames") as parnames:
         line = parnames.readline()
+        while line:
+          texname = " ".join(line.split()[1:]).strip()
+          paramname = line.split()[0].strip()
+          if self.verbose>2:
+            print("liquidcosmo :: Param {} was found at index {}".format(paramname,index))
+          retdict[paramname]=index
+          texdict[paramname] = texname
+          index+=1
+          line = parnames.readline()
+    elif self._code == _lq_code_type.cobaya:
+      with open(self._chainprefix+".1.txt") as parnames:
+        line = parnames.readline()
+        if line[0]!="#":
+          raise Exception("Malformed cobaya chain file? No header detected!")
+        names = [x for x in line[1:].split(" ") if x]
+        retdict = {name:i for i,name in enumerate(names)}
+        texdict = {name:name for name in names}
+    else:
+      raise Exception("Missing code type (report to developer)")
     return retdict,texdict
 
   # Create the chain object (equivalent to a named dictionary or arrays)
@@ -368,9 +402,17 @@ class folder:
   def d(self):
     return len(self.names)-2
 
+  def _read_log(self):
+    if self._code == _lq_code_type.montepython:
+      return self._read_log_montepython()
+    elif self._code == _lq_code_type.cobaya:
+      return self._read_log_cobaya()
+    else:
+      raise Exception("Unexpected code type")
+
   # -- Get all content of a log file capturing important information about the sampling process
   # -- Currently, only montepython log.param files are supported
-  def _read_log(self):
+  def _read_log_montepython(self):
     self._log = {}
     try:
       loginfo ={'path':{}}
@@ -418,7 +460,7 @@ class folder:
             else:
               raise Exception("Unknown argument list in log.param line:: "+repr(line))
             if parname[:3]=="log":
-              parinfo[parname]['log']=10          
+              parinfo[parname]['log']=10
             elif parname[:2]=="ln":
               parinfo[parname]['log']=np.e
             else:
@@ -458,7 +500,40 @@ class folder:
       self._log = {}
     return self._log
 
-  def write(self, fname):
+  def _read_log_cobaya(self):
+    self._log = {}
+    loginfo ={'path':{}}
+    parinfo = {}
+    arginfo = {}
+    lklopts = {}
+    with open(self._chainprefix+'.updated.yaml') as logfile:
+      try:
+        import yaml
+      except ImportError as ie:
+        raise Exception("Currently cannot run without pyyaml, sorry about that! Please run 'pip install pyyaml'") from ie
+      logdict = yaml.safe_load(logfile)
+      lklopts = logdict.pop('likelihood')
+      parinfo = logdict.pop('params')
+      for pname in parinfo:
+        par = parinfo[pname]
+        par['bound'] = [None,None]
+        if 'prior' in par and 'dist' in par['prior'] and par['prior']['dist'] == 'uniform':
+          par['min'] = par['prior'].pop('loc',0)
+          par['max'] = par['min']+par['prior'].pop('scale',1)
+        if 'min' in par:
+          par['bound'][0]  = par['min']
+        if 'max' in par:
+          par['bound'][1]  = par['max']
+      arginfo = logdict.pop('theory')
+      loginfo = logdict
+      self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
+    return self._log
+
+  def write(self, fname, codetype="montepython"):
+    if not (codetype=="montepython" or codetype=="Montepython" or codetype=="MontePython" or codetype=="MONTEPYTHON"):
+      raise Exception("Can currently only write in MontePython style")
+    if self._code != _lq_code_type.montepython:
+      raise Exception("Sadly this conversion from code type '{}' to 'montepython' is not yet supported".format(self._code))
     if os.path.exists(fname):
       raise Exception("File path already exists : ",fname)
     else:
