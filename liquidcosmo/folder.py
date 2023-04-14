@@ -186,6 +186,8 @@ class folder:
     pool.join()
 
     filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
+    if(len(filearr))==0:
+      raise Exception("There is probably a problem with the chain folder '{}' that is attempted to be analyzed. Please make sure that the folder is non-empty and the chains are not empty files.".format(self._foldername))
     arrs = [[] for i in range(len(filearr[0]))]
 
     if burnin_threshold >= 0:
