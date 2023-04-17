@@ -126,9 +126,19 @@ class foldercollection:
     gdfolders = [f.to_getdist() for f in res.folderlist]
     if 'filled' not in kwargs:
       kwargs['filled'] = True
+    line_args = kwargs.pop('line_args',[{} for i in range(len(gdfolders))])
+    if "linestyle" in kwargs:
+      if isinstance(kwargs['linestyle'],(list,tuple,np.ndarray)):
+        for i in range(len(gdfolders)):
+          line_args[i].update({"ls":kwargs['linestyle'][i%len(kwargs['linestyle'])]})
+      else:
+        line_args = [kwargs['linestyle'] for i in range(len(gdfolders))]
+    if colors:
+      for i in range(len(gdfolders)):
+        line_args[i].update({"color":colors[i%len(colors)]})
+    contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
     spp = get_subplot_plotter(settings=default_settings)
-    spp.triangle_plot(gdfolders,alphas=alphas,colors=colors,
-      line_args=([{'color':c} for c in colors] if colors else None),**kwargs)
+    spp.triangle_plot(gdfolders,alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
     # Delegate to first folder, to use same function
     self.folderlist[0]._add_point(spp,add_point,names=self.common_names)
     return spp
