@@ -93,6 +93,7 @@ def initialize_plots(legend_frame = True, legend_fontsize = 15, axes_fontsize = 
   import getdist.plots
   gdplotsettings = getdist.plots.GetDistPlotSettings()
   gdplotsettings.solid_colors = colors
+  gdplotsettings.line_styles = [("-",c) for c in colors]
   gdplotsettings.solid_contour_palefactor = 0.5
   gdplotsettings.linewidth_contour = 2.0
   gdplotsettings.linewidth = 2.0
