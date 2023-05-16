@@ -1,6 +1,7 @@
 import numpy as np
 from .folder import folder
 from .matplotlib_defaults import default_settings
+from itertools import cycle
 class foldercollection:
   
   def __init__(self):
@@ -133,9 +134,11 @@ class foldercollection:
           line_args[i].update({"ls":kwargs['linestyle'][i%len(kwargs['linestyle'])]})
       else:
         line_args = [kwargs['linestyle'] for i in range(len(gdfolders))]
-    if colors:
-      for i in range(len(gdfolders)):
-        line_args[i].update({"color":colors[i%len(colors)]})
+    if not colors:
+      cyc = cycle(default_settings.solid_colors)
+      colors = [next(cyc) for i in range(len(gdfolders))]
+    for i in range(len(gdfolders)):
+      line_args[i].update({"color":colors[i%len(colors)]})
     contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
     spp = get_subplot_plotter(settings=default_settings)
     spp.triangle_plot(gdfolders,alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
