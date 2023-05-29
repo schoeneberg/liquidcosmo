@@ -58,13 +58,13 @@ def round_reasonable(val, errp=None,errm=None , digits=1):
       pluserrstr = "{:.{acc}f}".format(errp*10**(-first_sigfig),acc=digits)
       minuserrstr = "{:.{acc}f}".format(errm*10**(-first_sigfig),acc=digits)
       if pluserrstr!=minuserrstr:
-        return "({"+"{:.{acc}f}".format(val*10**(-first_sigfig),acc=digits)+"}^{"+pluserrstr+"}_{-"+minuserrstr+"}"+") \cdot 10^{"+str(first_sigfig)+"}"
+        return "({"+"{:.{acc}f}".format(val*10**(-first_sigfig),acc=digits)+"}^{+"+pluserrstr+"}_{-"+minuserrstr+"}"+") \cdot 10^{"+str(first_sigfig)+"}"
       else:
         return "("+"{:.{acc}f}".format(val*10**(-first_sigfig),acc=digits)+" \pm "+pluserrstr+") \cdot 10^{"+str(first_sigfig)+"}"
     else:
       pluserrstr = "{:.{acc}f}".format(errp,acc=-first_sigfig+digits)
       minuserrstr = "{:.{acc}f}".format(errm,acc=-first_sigfig+digits)
       if pluserrstr!=minuserrstr:
-        return "{"+"{:.{acc}f}".format(val,acc=-first_sigfig+digits)+"}^{"+pluserrstr+"}_{-"+minuserrstr+"}"
+        return "{"+"{:.{acc}f}".format(val,acc=-first_sigfig+digits)+"}^{+"+pluserrstr+"}_{-"+minuserrstr+"}"
       else:
         return "{:.{acc}f}".format(val,acc=-first_sigfig+digits)+" \pm "+"{:.{acc}f}".format(errp,acc=-first_sigfig+digits)
