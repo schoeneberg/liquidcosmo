@@ -27,19 +27,21 @@ class obj_iterator:
       raise StopIteration
 
 
-def tex_convert(constr,withdollar,mean,texname=None):
+def tex_convert(constr,withdollar,mean,texname=None,name=None):
   from .util import round_reasonable
   string = ""
   if constr[1]=="unconstrained":
-    string= (texname+" " if texname else "") +"unconstrained"
+    string= (texname+" " if texname is not None else "") +"unconstrained"
   elif constr[1]==">":
-    string= (texname+" " if texname else "") +"> "+round_reasonable(constr[0][0])
+    string= (texname+" " if texname is not None else "") +"> "+round_reasonable(constr[0][0])
   elif constr[1]=="<":
-    string= (texname+" " if texname else "") +"< "+round_reasonable(constr[0][1])
+    string= (texname+" " if texname is not None else "") +"< "+round_reasonable(constr[0][1])
   elif constr[1]=="+-":
-    string= (texname+" " if texname else "") +"= "+round_reasonable(mean,errp=constr[0][1]-mean,errm=mean-constr[0][0])
+    string= (texname+" = " if texname is not None else "") +round_reasonable(mean,errp=constr[0][1]-mean,errm=mean-constr[0][0])
   if withdollar:
     string = "$"+string+"$"
+  if name is not None:
+    string = name+":"+string
   return string
 
 #from collections import OrderedDict
@@ -919,7 +921,7 @@ class folder:
       return self.constraint([parnames])[parnames]
     constr = self.constraint(parnames=parnames)
     means = self.mean(parnames=parnames,asdict=True)
-    retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname else None)) for par in parnames])
+    retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is not None else None),name=(par if withname is None else None)) for par in parnames])
     return retstr
 
   def plot_getdist(self, ax=None,color=None,add_point=None,**kwargs):
