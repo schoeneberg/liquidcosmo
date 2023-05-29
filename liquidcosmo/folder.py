@@ -627,9 +627,9 @@ class folder:
       else:
         upper = lower[1]
         lower = lower[0]
-    if lower and destructive:
+    if lower is not None and destructive:
       self._narr = self.chain[self[parname]>=lower]
-    if upper and destructive:
+    if upper is not None and destructive:
       self._narr = self.chain[self[parname]<=upper]
     if self.logfile != {} and parname in self.logfile['parinfo']:
       self.logfile['parinfo'][parname]['bound'] = [lower,upper]
@@ -641,9 +641,9 @@ class folder:
   def range_mask(self,parname):
     lower,upper = self.get_range(parname)
     mask = np.ones(self.N,dtype=bool)
-    if lower:
+    if lower is not None:
       mask = np.logical_and(mask,self[parname]>=lower)
-    if upper:
+    if upper is not None:
       mask = np.logical_and(mask,self[parname]<=upper)
     return mask
   def cut_to_range(self, parname):
@@ -755,12 +755,12 @@ class folder:
 
   def _credible(self,parname,p=None,sigma=None,twoside=False,upper=True):
     # By default, this computes the ETI (equal-tailed-interval)
-    if sigma:
+    if sigma is not None:
       from scipy.special import erf
-      if p:
+      if p is not None:
         raise ValueError("Cannot pass both a probability 'p' and a sigma deviation 'sigma'.")
       return self.credible(parname,p=erf(sigma/np.sqrt(2)),twoside=twoside,upper=upper)
-    elif not p:
+    elif p is None:
       raise ValueError("You have to pass either a probability 'p' or a sigma deviation 'sigma'.")
     if p<0 or p>1:
       raise ValueError("Cannot pass {} (p={})".format(("p<0" if p<0 else "p>1"),p))
@@ -863,7 +863,7 @@ class folder:
     return mcsamples
 
   def constraint(self,parnames=None):
-    if not parnames:
+    if parnames is None:
       parnames = self.names[2:]
     if isinstance(parnames,str):
       return self.constraint([parnames])[parnames]
@@ -880,7 +880,7 @@ class folder:
       lower,upper = self.get_range(parname)
       lower_problem = 0
       upper_problem = 0
-      if lower:
+      if lower is not None:
         prob = gd_1d(lower)
         # Problem only for 1 sigma
         if prob > onesig:
@@ -888,7 +888,7 @@ class folder:
         # Problem also for 2 sigma
         elif prob > twosig:
           lower_problem = 2
-      if upper:
+      if upper is not None:
         prob = gd_1d(upper)
         # Problem only for 1 sigma
         if prob > onesig:
@@ -913,7 +913,7 @@ class folder:
     return constraints
 
   def texconstraint(self,parnames=None,withdollar=True,withname=True):
-    if not parnames:
+    if parnames is None:
       parnames = self.names[2:]
     if isinstance(parnames,str):
       return self.constraint([parnames])[parnames]

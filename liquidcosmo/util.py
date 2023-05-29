@@ -5,7 +5,7 @@ def round_reasonable(val, errp=None,errm=None , digits=1):
   # Do some accounting a priori
   if digits<0:
     raise ValueError("Cannot print negative number of significant digits")
-  if errm and not errp:
+  if errm is not None and errp is None:
     raise ValueError("Cannot give only negative but no positive error bar")
   # Check for arrays instead of values, convert individually
   if isinstance(val,(list,tuple,np.ndarray)):
@@ -15,7 +15,7 @@ def round_reasonable(val, errp=None,errm=None , digits=1):
       raise ValueError("Cannot pass a list of vals but only a single errm")
     return [round_reasonable(v,errp=(errp[iv] if errp else None),errm=(errm[iv] if errm else None),digits=digits) for iv,v in enumerate(val)]
   # Only value, no errors
-  if not errp:
+  if errp is None:
     if val==0:
       first_sigfig = 0
     else:
@@ -25,7 +25,7 @@ def round_reasonable(val, errp=None,errm=None , digits=1):
     else:
       return "{:.{acc}f}".format(val,acc=-first_sigfig+digits)
   # Symmetric error
-  elif not errm:
+  elif errm is None:
     if errp<0:
       raise ValueError("Cannot pass negative errp")
     # error = 0 is equivalent to no error
