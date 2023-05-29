@@ -26,8 +26,27 @@ class obj_iterator:
     else:
       raise StopIteration
 
+
+def tex_convert(constr,withdollar,mean,texname=None):
+  from .util import round_reasonable
+  string = ""
+  if constr[1]=="unconstrained":
+    string= (texname+" " if texname else "") +"unconstrained"
+  elif constr[1]==">":
+    string= (texname+" " if texname else "") +"> "+round_reasonable(constr[0][0])
+  elif constr[1]=="<":
+    string= (texname+" " if texname else "") +"< "+round_reasonable(constr[0][1])
+  elif constr[1]=="+-":
+    string= (texname+" " if texname else "") +"= "+round_reasonable(mean,errp=constr[0][1]-mean,errm=mean-constr[0][0])
+  if withdollar:
+    string = "$"+string+"$"
+  return string
+
 #from collections import OrderedDict
 class folder:
+
+  __limit_safety_factor = 0.7
+
   def __init__(self):
     self.verbose = 0
     self._foldername = None
@@ -39,6 +58,7 @@ class folder:
     self._arr = None
     self._narr = None
     self._log =  None
+    self._confinfo = {}
     self.path = None
 
   # copy this object
@@ -54,6 +74,7 @@ class folder:
     a._arr = self._arr
     a._narr = self._narr
     a._log = self._log
+    a._confinfo = self._confinfo
     a.path = self.path
     return a
 
@@ -70,6 +91,7 @@ class folder:
     a._arr = deepcopy(self._arr)
     a._narr = deepcopy(self._narr)
     a._log = deepcopy(self._log)
+    a._confinfo = deepcopy(self._confinfo)
     a.path = deepcopy(self.path)
     return a
 
@@ -84,6 +106,7 @@ class folder:
     a._arr = None
     a._narr = None
     a._log = None
+    a._confinfo = {}
     a.path = os.path.abspath(a._foldername)
     a.get_chain(burnin_threshold=burnin_threshold)
     return a
@@ -595,22 +618,37 @@ class folder:
               lklop = lklopts[par][k]
               logfile.write("{}.{} = {}\n".format(par,k,str(lklop) if not isinstance(lklop,str) else "'{}'".format(lklop)))
 
-  def set_range(self,parname,lower=None,upper=None):
+  def set_range(self,parname,lower=None,upper=None,destructive=False):
+    if isinstance(lower,list) or type(lower) is np.ndarray:
+      if upper:
+        raise ValueError("Cannot have 'upper!=None' but also 'lower' be a list")
+      elif len(lower)!=2:
+        raise ValueError("If you provide a list, it must be exactly 2 elements long")
+      else:
+        upper = lower[1]
+        lower = lower[0]
+    if lower and destructive:
+      self._narr = self.chain[self[parname]>=lower]
+    if upper and destructive:
+      self._narr = self.chain[self[parname]<=upper]
     if self.logfile != {} and parname in self.logfile['parinfo']:
-      if isinstance(lower,list) or type(lower) is np.ndarray:
-        if upper:
-          raise Exception("Cannot have 'upper!=None' but also 'lower' be a list")
-        elif len(lower)!=2:
-          raise Exception("If you provide a list, it must be exactly 2 elements long")
-        else:
-          upper = lower[1]
-          lower = lower[0]
       self.logfile['parinfo'][parname]['bound'] = [lower,upper]
   def get_range(self,parname):
     if self.logfile != {} and parname in self.logfile['parinfo']:
       return self.logfile['parinfo'][parname]['bound']
     else:
       return [None,None]
+  def range_mask(self,parname):
+    lower,upper = self.get_range(parname)
+    mask = np.ones(self.N,dtype=bool)
+    if lower:
+      mask = np.logical_and(mask,self[parname]>=lower)
+    if upper:
+      mask = np.logical_and(mask,self[parname]<=upper)
+    return mask
+  def cut_to_range(self, parname):
+    mask = self.range_mask(parname)
+    return self[mask]
   def get_bounds(self):
     bounds = {}
     for par in self.names[2:]:
@@ -651,7 +689,10 @@ class folder:
         obj = obj.subrange(p, v)
       return obj
 
-  def mean(self,parnames=None):
+  def mean(self,parnames=None,asdict=False):
+    if asdict:
+      mean = self.mean(parnames=parnames,asdict=False)
+      return {p:mean[ip] for ip,p in enumerate(parnames or self.names[2:])}
     if isinstance(parnames,str):
       return self._parmean(parnames)
     elif isinstance(parnames,(list,tuple)):
@@ -670,6 +711,18 @@ class folder:
       return self._parcov(self.names[2:])
     else:
       raise Exception("Input to mean '{}' not recognized.".format(parnames))
+  def std(self,parnames=None,asdict=False):
+    if asdict:
+      std = self.std(parnames=parnames,asdict=False)
+      return {p:std[ip] for ip,p in enumerate(parnames or self.names[2:])}
+    if isinstance(parnames,str):
+      return self._parstd(parnames)
+    elif isinstance(parnames,(list,tuple)):
+      return np.array([self._parstd(q) for q in parnames])
+    elif parnames is None:
+      return np.array([self._parstd(q) for q in self.names[2:]])
+    else:
+      raise Exception("Input to std '{}' not recognized.".format(parnames))
 
   def _parmean(self,parname):
     return np.average(self[parname],weights=self['N'])
@@ -677,6 +730,53 @@ class folder:
     if self.N==1:
       raise Exception("Cannot compute covariance of a chain with only a single point!")
     return np.cov([self[parname] for parname in parnames],fweights=self['N'])
+  def _parstd(self,parname):
+    if self.N==1:
+      raise Exception("Cannot compute covariance of a chain with only a single point!")
+    mean = self._parmean(parname)
+    return np.sqrt(np.average(np.array(self[parname]-mean)**2,weights=self['N']))
+
+  def _upper_limit(self,parname, alpha):
+    # By default, this computes a given quantile
+    mask = self.range_mask(parname)
+    Nmask = np.count_nonzero(mask)
+    if parname in self._confinfo and Nmask == self._confinfo[parname]['Nmask']:
+      samples = self[parname][mask]
+      idxs = self._confinfo[parname]['idxs']
+      wfracs = self._confinfo[parname]['wfracs']
+    else:
+      samples = self[parname][mask]
+      idxs = np.argsort(samples)
+      sorted_weights = self['N'][mask][idxs]
+      wfracs = np.cumsum(sorted_weights/np.sum(sorted_weights))
+      self._confinfo[parname] = {'wfracs': wfracs, 'idxs':idxs, 'Nmask':Nmask}
+    idx = np.searchsorted(wfracs, alpha)
+    return samples[idxs[idx]]
+
+  def _credible(self,parname,p=None,sigma=None,twoside=False,upper=True):
+    # By default, this computes the ETI (equal-tailed-interval)
+    if sigma:
+      from scipy.special import erf
+      if p:
+        raise ValueError("Cannot pass both a probability 'p' and a sigma deviation 'sigma'.")
+      return self.credible(parname,p=erf(sigma/np.sqrt(2)),twoside=twoside,upper=upper)
+    elif not p:
+      raise ValueError("You have to pass either a probability 'p' or a sigma deviation 'sigma'.")
+    if p<0 or p>1:
+      raise ValueError("Cannot pass {} (p={})".format(("p<0" if p<0 else "p>1"),p))
+    if twoside:
+      return [self._upper_limit(parname,alpha=(1.-p)/2.),self._upper_limit(parname,alpha=1.-(1.-p)/2.)]
+    elif not upper:
+      alph = 1-p
+    else:
+      alph = p
+    return self._upper_limit(parname,alpha=alph)
+  def credible(self,parnames=None,p=None,sigma=None,twoside=False,upper=True):
+    if isinstance(parnames,str):
+      return self._credible(parnames,p=p,sigma=sigma,twoside=twoside,upper=upper)
+    return {pname:self._credible(pname,p=p,sigma=sigma,twoside=twoside,upper=upper) for pname in (parnames if parnames else self.names[2:])}
+  def median(self,parname):
+    return self.credible(parname,p=0.5)
 
   def subdivide(self, subdivisions=None, threshold_min_subdivision=100):
     custom_subdivision = False
@@ -761,6 +861,66 @@ class folder:
         sampler=sampler,
         ranges={par:bounds[par] for par in names})
     return mcsamples
+
+  def constraint(self,parnames=None):
+    if not parnames:
+      parnames = self.names[2:]
+    if isinstance(parnames,str):
+      return self.constraint([parnames])[parnames]
+
+    # Turn into getdist to get 1d distribution -- TODO :: could also be done via histogramming (if no getdist installed)
+    gd = self.to_getdist()
+    constraints = {}
+    for parname in parnames:
+      gd_par = gd.paramNames.parWithName(parname)
+      gd_1d = gd.get1DDensity(gd_par.name)
+      onesig, twosig = gd_1d.getContourLevels() * self.__limit_safety_factor# or [np.exp(-1**2/2),np.exp(-2**2/2)]
+
+      # Identify whether the posterior sufficiently goes down at the boundary (using getdist)
+      lower,upper = self.get_range(parname)
+      lower_problem = 0
+      upper_problem = 0
+      if lower:
+        prob = gd_1d(lower)
+        # Problem only for 1 sigma
+        if prob > onesig:
+          lower_problem = 1
+        # Problem also for 2 sigma
+        elif prob > twosig:
+          lower_problem = 2
+      if upper:
+        prob = gd_1d(upper)
+        # Problem only for 1 sigma
+        if prob > onesig:
+          upper_problem = 1
+        # Problem also for 2 sigma
+        elif prob > twosig:
+          upper_problem = 2
+
+      # With this information, say if there is a constraint
+      if lower_problem==1 and upper_problem==1 or (lower_problem==1 and upper_problem==2) or (lower_problem==2 and upper_problem==1):
+        #EITHER both a problem at 1 sigma, or one is fine at 1sig and the other cannot give 2 sigma
+        constraints[parname] = [[lower,upper],"unconstrained"]
+      elif upper_problem==1:
+        lowbound =  self._credible(parname,sigma=2,twoside=False,upper=False)
+        constraints[parname] = [[lowbound,upper],">"]
+      elif lower_problem==1:
+        upbound =  self._credible(parname,sigma=2,twoside=False,upper=True)
+        constraints[parname] = [[lower,upbound],"<"]
+      else:
+        lowbound, upbound =  self._credible(parname,sigma=1,twoside=True)
+        constraints[parname] = [[lowbound,upbound],"+-"]
+    return constraints
+
+  def texconstraint(self,parnames=None,withdollar=True,withname=True):
+    if not parnames:
+      parnames = self.names[2:]
+    if isinstance(parnames,str):
+      return self.constraint([parnames])[parnames]
+    constr = self.constraint(parnames=parnames)
+    means = self.mean(parnames=parnames,asdict=True)
+    retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=self._texnames[par]) for par in parnames])
+    return retstr
 
   def plot_getdist(self, ax=None,color=None,add_point=None,**kwargs):
     from getdist.plots import get_subplot_plotter

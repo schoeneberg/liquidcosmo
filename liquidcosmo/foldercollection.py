@@ -43,10 +43,18 @@ class foldercollection:
   @property
   def cosmopars(self):
     return [f.cosmopars() for f in self.folderlist]
-  def cov(self):
-    return [f.cov() for f in self.folderlist]
-  def mean(self):
-    return [f.mean() for f in self.folderlist]
+  def cov(self,parnames=None):
+    return [f.cov(parnames=parnames) for f in self.folderlist]
+  def mean(self,parnames=None,asdict=False):
+    return [f.mean(parnames=parnames,asdict=asdict) for f in self.folderlist]
+  def std(self,parnames=None,asdict=False):
+    return [f.std(parnames=parnames,asdict=asdict) for f in self.folderlist]
+  def credible(self,parnames=None,p=None,sigma=None,twoside=False,upper=True):
+    return [f.credible(parnames=parnames,p=p,sigma=sigma,twoside=twoside,upper=upper) for f in self.folderlist]
+  def constraint(self,parnames=None):
+    return [f.constraint(parnames=parnames) for f in self.folderlist]
+  def texconstraint(self,parnames=None):
+    return [f.texconstraint(parnames=parnames) for f in self.folderlist]
   def names(self):
     return [f.names() for f in self.folderlist]
   def common_names(self):
@@ -74,9 +82,9 @@ class foldercollection:
   @property
   def logfile(self):
     return [f.logfile for f in self.folderlist]
-  def set_range(self,parname,lower=None,upper=None):
+  def set_range(self,parname,lower=None,upper=None,destructive=False):
     for f in self.folderlist:
-      f.set_range(parname, lower=lower, upper=upper)
+      f.set_range(parname, lower=lower, upper=upper,destructive=destructive)
   def set_texname(self,parname,texname):
     flag = False
     for f in self.folderlist:
