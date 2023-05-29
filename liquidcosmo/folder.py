@@ -921,7 +921,7 @@ class folder:
       return self.constraint([parnames])[parnames]
     constr = self.constraint(parnames=parnames)
     means = self.mean(parnames=parnames,asdict=True)
-    retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is not None else None),name=(par if withname is None else None)) for par in parnames])
+    retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is True else None),name=(par if withname is False else None)) for par in parnames])
     return retstr
 
   def plot_getdist(self, ax=None,color=None,add_point=None,**kwargs):
