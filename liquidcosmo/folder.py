@@ -927,6 +927,9 @@ class folder:
   def plot_getdist(self, ax=None,color=None,add_point=None,**kwargs):
     from getdist.plots import get_subplot_plotter
     gdfolder = self.to_getdist()
+    ana_set = kwargs.pop('analysis_settings')
+    if ana_set is not None:
+        gdfolder.updateSettings(settings=ana_set)
     spp = get_subplot_plotter(settings=default_settings)
     if 'filled' not in kwargs:
       kwargs['filled'] = True
