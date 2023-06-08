@@ -27,7 +27,7 @@ class obj_iterator:
       raise StopIteration
 
 
-def tex_convert(constr,withdollar,mean,texname=None,name=None):
+def tex_convert(constr,withdollar,mean,texname=None,name=None,equalize=2.5):
   from .util import round_reasonable
   string = ""
   if constr[1]=="unconstrained":
@@ -37,7 +37,7 @@ def tex_convert(constr,withdollar,mean,texname=None,name=None):
   elif constr[1]=="<":
     string= (texname+" " if texname is not None else "") +"< "+round_reasonable(constr[0][1])
   elif constr[1]=="+-":
-    string= (texname+" = " if texname is not None else "") +round_reasonable(mean,errp=constr[0][1]-mean,errm=mean-constr[0][0])
+    string= (texname+" = " if texname is not None else "") +round_reasonable(mean,errp=constr[0][1]-mean,errm=mean-constr[0][0],equalize=equalize)
   if withdollar:
     string = "$"+string+"$"
   if name is not None:
@@ -48,6 +48,7 @@ def tex_convert(constr,withdollar,mean,texname=None,name=None):
 class folder:
 
   __limit_safety_factor = 0.7
+  __equalize_errors = 2.0
 
   def __init__(self):
     self.verbose = 0
@@ -921,7 +922,7 @@ class folder:
       return self.constraint([parnames])[parnames]
     constr = self.constraint(parnames=parnames)
     means = self.mean(parnames=parnames,asdict=True)
-    retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is True else None),name=(par if withname is False else None)) for par in parnames])
+    retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is True else None),name=(par if withname is False else None),equalize=self.__equalize_errors) for par in parnames])
     return retstr
 
   def plot_getdist(self, ax=None,color=None,add_point=None,**kwargs):

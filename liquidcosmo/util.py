@@ -1,7 +1,7 @@
 import numpy as np
 _round_exponential_max = 5
 _round_exponential_min = -5
-def round_reasonable(val, errp=None,errm=None , digits=1):
+def round_reasonable(val, errp=None,errm=None , digits=1, equalize=0.0):
   # Do some accounting a priori
   if digits<0:
     raise ValueError("Cannot print negative number of significant digits")
@@ -54,6 +54,9 @@ def round_reasonable(val, errp=None,errm=None , digits=1):
       errm_sigfig = int(np.floor(np.log10(np.abs(errm))))
     # Choose the LARGER error for the significant digit
     first_sigfig = max(errp_sigfig,errm_sigfig)
+    if equalize != 0.:
+      if np.abs(errm*10**(-first_sigfig+digits)-errp*10**(-first_sigfig+digits))<equalize:
+        return round_reasonable(val, errp=(errp+errm)/2.,errm=(errp+errm)/2. , digits=digits, equalize=0.)
     if first_sigfig < _round_exponential_min or first_sigfig > _round_exponential_max:
       pluserrstr = "{:.{acc}f}".format(errp*10**(-first_sigfig),acc=digits)
       minuserrstr = "{:.{acc}f}".format(errm*10**(-first_sigfig),acc=digits)
