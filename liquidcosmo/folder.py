@@ -100,7 +100,7 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0):
+  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60):
     a = obj()
     a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix, a._code = obj._resolve_chainname(path, kind=kind)
@@ -111,7 +111,7 @@ class folder:
     a._log = None
     a._confinfo = {}
     a.path = os.path.abspath(a._foldername)
-    a.get_chain(burnin_threshold=burnin_threshold)
+    a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout)
     return a
 
   # -- Load a given chain (for a given full filename)
@@ -154,7 +154,9 @@ class folder:
   @classmethod
   def _resolve_prefix(obj, path):
     if "__" in path:
-      return path.split("__")[0]
+      return path.split("__")[0]+"_"
+    elif "_1.txt" in path:
+      return path.split("_1.txt")[0]
     elif ".txt" in path:
       return "".join(path.split(".")[:-2])
     else:
@@ -171,6 +173,10 @@ class folder:
       code = _lq_code_type.montepython
       chain_targets = [chain for chain in allfilenames if "__" in chain]
       delim = "__"
+    elif np.any(["_1.txt" in chain for chain in allfilenames]):
+      code = _lq_code_type.montepython
+      chain_targets = [chain for chain in allfilenames if np.any(["_{}.txt".format(i) in chain for i in range(100)])]
+      delim = "_"
     else:
       code = _lq_code_type.cobaya
       chain_targets = [chain for chain in allfilenames if ".txt" in chain]
@@ -189,7 +195,7 @@ class folder:
     return allchains, code
 
   # -- Load all points from folder --
-  def _get_array(self,excludesmall=True,burnin_threshold=3):
+  def _get_array(self,excludesmall=True,burnin_threshold=3,timeout=60):
     if self._arr is not None:
       return self._arr
 
@@ -203,7 +209,7 @@ class folder:
     signal.signal(signal.SIGINT, sigint_handler)
     try:
       filearr = pool.map_async(folder.__ldchain__, chainnames)
-      filearr = filearr.get(60) # 60 seconds (timeout)
+      filearr = filearr.get(timeout) # by default 60 seconds (timeout)
     except KeyboardInterrupt:
       print("You stopped the loading of the chains by KeyboardInterrupt")
       pool.terminate()
@@ -248,7 +254,7 @@ class folder:
     texdict = {'N':'Multiplicity','lnp':'-\\ln(\\mathcal{L})'}
     index = 2
     if self._code == _lq_code_type.montepython:
-      with open(self._chainprefix+"_.paramnames") as parnames:
+      with open(self._chainprefix+".paramnames") as parnames:
         line = parnames.readline()
         while line:
           texname = " ".join(line.split()[1:]).strip()
@@ -272,10 +278,10 @@ class folder:
     return retdict,texdict
 
   # Create the chain object (equivalent to a named dictionary or arrays)
-  def get_chain(self,excludesmall=True,burnin_threshold=5):
+  def get_chain(self,excludesmall=True,burnin_threshold=5,timeout=60):
     if not (self._narr is None):
       return self._narr
-    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold)
+    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold,timeout=timeout)
     arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
     #arrdict = {'N':arr[0],'lnp':arr[1]}
     parnames, texnames = self._load_names()
