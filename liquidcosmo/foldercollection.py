@@ -133,7 +133,7 @@ class foldercollection:
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     gdfolders = [f.to_getdist() for f in res.folderlist]
-    ana_set = kwargs.pop('analysis_settings')
+    ana_set = kwargs.pop('analysis_settings',None)
     if ana_set is not None:
       for gdf in gdfolders:
         gdf.updateSettings(settings=ana_set)
