@@ -8,6 +8,8 @@ from datetime import date
 from collections import OrderedDict
 from copy import deepcopy
 from .matplotlib_defaults import default_settings
+from memory_profiler import profile
+from functools import partial
 
 class _lq_code_type:
   montepython = 0
@@ -49,6 +51,7 @@ class folder:
 
   __limit_safety_factor = 0.7
   __equalize_errors = 2.0
+  __precision_mode = False
 
   def __init__(self):
     self.verbose = 0
@@ -115,11 +118,63 @@ class folder:
     return a
 
   # -- Load a given chain (for a given full filename)
-  def __ldchain__(filename,verbose=False):
+  def __ldchain__(filename,verbose=False,precision_mode=False):
+    # This should all be effectively equivalent to (but vastly faster and more memory efficient than)
+    #arr = np.genfromtxt(filename).T
     if verbose:
       print("liquidcosmo :: Loading chain {}".format(filename))
-    arr = np.genfromtxt(filename).T
-    return arr
+
+    # Fast reading of the file to get line count
+    def fastread(f):
+      f.seek(0)
+      # Helper function to put a large file into blocks of decent size
+      def blocks(f, size=65536): #2^16
+        while True:
+          b = f.read(size)
+          if not b: break
+          yield b
+      # use the sum over a generator in order to avoid loading all at once
+      return sum(bl.count('\n') for bl in blocks(f))
+
+    # Reading of first line of elements to get number of elems per line
+    def get_num_items(f):
+      f.seek(0)
+      for line in f:
+        if line.startswith("#"):
+          continue
+        else:
+          return len(line.split())
+
+    # Putting the actual contents of the file into an array called 'arr' (HAS TO EXIST!!)
+    def load_file(f,storage_type):
+      f.seek(0)
+      i = 0
+      for line in f:
+        if line.startswith('#'):
+          continue
+        arr[i] = [storage_type(f) for f in line.split()]
+        i+=1
+      return i
+
+    # The actual code of the function
+    with open(filename,"r",encoding="utf-8",errors='ignore') as f:
+      linenum = fastread(f)
+      numitems = get_num_items(f)
+      # The chain files are usually written at a relatively low precision, allowing us to use low precision representations. However, we still give the user the option to use full precision
+      storage_type = (np.float64 if precision_mode == True else np.float32)
+      if linenum==0 or numitems==0:
+        return []
+      arr = np.empty((linenum,numitems),dtype=storage_type)
+      real_len = load_file(f,storage_type) # MODIFIES arr (!!)
+      arr = arr[:real_len]
+
+    # Just some verbosity
+    if verbose:
+      print("liquidcosmo :: Success in loading chain {}".format(filename))
+
+    return arr.T
+
+
 
   # -- Resolve the chain names of chains --
   @classmethod
@@ -207,20 +262,25 @@ class folder:
     sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     pool = multiprocessing.Pool(8)
     signal.signal(signal.SIGINT, sigint_handler)
+    loading_function = partial(folder.__ldchain__,precision_mode=self.__precision_mode)
     try:
-      filearr = pool.map_async(folder.__ldchain__, chainnames)
+      filearr = pool.map_async(loading_function, chainnames)
       filearr = filearr.get(timeout) # by default 60 seconds (timeout)
     except KeyboardInterrupt:
       print("You stopped the loading of the chains by KeyboardInterrupt")
       pool.terminate()
+      raise
     else:
       pool.close()
     pool.join()
 
-    filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
+    for fa in reversed(filearr):
+      if fa==[] or fa.ndim<=1:
+        filearr.remove(fa)
+
+    #filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
     if(len(filearr))==0:
       raise Exception("There is probably a problem with the chain folder '{}' that is attempted to be analyzed. Please make sure that the folder is non-empty and the chains are not empty files.".format(self._foldername))
-    arrs = [[] for i in range(len(filearr[0]))]
 
     if burnin_threshold >= 0:
       import scipy.stats
@@ -239,10 +299,21 @@ class folder:
     self.lens = np.array([len(fa[0]) for fa in filearr])
 
 
-    for iparam in range(len(filearr[0])):
-      for j in range(len(filearr)):
-        arrs[iparam] = np.concatenate([arrs[iparam],filearr[j][iparam][:]])
-    arrs = np.array(arrs)
+    # The code below should be completely equivalent to
+    #arrs = np.hstack(filearr)
+    # but that causes memory problems, since it isn't smart enough to lazily allocate
+    # (The problem cannot be avoided in its entirety of course)
+    arrs = np.empty((len(filearr[0]),np.sum(self.lens)))
+
+    idx = 0
+    # This is technically not the most efficient loop, but it avoids memory issues
+    for j in range(len(filearr)):
+      leng = self.lens[j]
+      for iparam in range(len(filearr[j])):
+        arrs[iparam][idx:idx+leng] = filearr[j][iparam][:]
+      idx+=leng
+      # Important: Free memory that we don't need anymore!
+      filearr[j] = None
 
     self._arr = arrs
     return arrs
