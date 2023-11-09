@@ -651,6 +651,42 @@ class folder:
       self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
     return self._log
 
+  def __get_individual_counts(self):
+    if self.N == np.sum(self.lens):
+      # If we still have the original number of points, the answer is trivial
+      counts = self.lens
+    else:
+      # If the chain has been 'tampered' with, we need to re-distribute the remaining point over the given number of files
+      if(self.N < len(self.lens)):
+        # Less chain points than files, summarize all in one file
+        counts = [self.N]
+      else:
+        counts = np.empty_like(self.lens)
+        c_per_file = self.N//len(self.lens)
+        remainder = self.N-c_per_file*len(self.lens)
+        for i in range(len(self.lens)):
+          counts[i] = c_per_file + (1 if remainder>0 else 0)
+          if remainder > 0:
+            remainder -= 1
+    return counts
+
+  def to_individual(self):
+    counts = self.__get_individual_counts()
+
+    from .foldercollection import foldercollection
+    coll = foldercollection()
+    index = 0
+    for i,c in enumerate(counts):
+      fo = self.deepcopy()
+      chain = self.chain[index:index+c]
+      fo._narr = chain
+      fo._arr = None #Technically not necessary, but let's do it for safety
+      fo.lens = np.array([c])
+      fo._allchains = [self._allchains[i]]
+      coll.folderlist.append(fo)
+      index+=c
+    return coll
+
   def write(self, fname, codetype="montepython"):
     if not (codetype=="montepython" or codetype=="Montepython" or codetype=="MontePython" or codetype=="MONTEPYTHON"):
       raise Exception("Can currently only write in MontePython style")
@@ -660,22 +696,7 @@ class folder:
       raise Exception("File path already exists : ",fname)
     else:
       # How many points to put into the individual chains?
-      if self.N == np.sum(self.lens):
-        # If we still have the original number of points, the answer is trivial
-        counts = self.lens
-      else:
-        # If the chain has been 'tampered' with, we need to re-distribute the remaining point over the given number of files
-        if(self.N < len(self.lens)):
-          # Less chain points than files, summarize all in one file
-          counts = [self.N]
-        else:
-          counts = np.empty_like(self.lens)
-          c_per_file = self.N//len(self.lens)
-          remainder = self.N-c_per_file*len(self.lens)
-          for i in range(len(self.lens)):
-            counts[i] = c_per_file + (1 if remainder>0 else 0)
-            if remainder > 0:
-              remainder -= 1
+      counts = self.__get_individual_counts()
       os.mkdir(fname)
       index = 0
       for i, c in enumerate(counts):
