@@ -700,7 +700,7 @@ class folder:
       os.mkdir(fname)
       index = 0
       for i, c in enumerate(counts):
-        with open(os.path.join(fname,str(date.today())+"_"+str(c)+"__"+str(i)+".txt"),"w") as ofile:
+        with open(os.path.join(fname,str(date.today())+"_"+str(c)+"__"+str(i+1)+".txt"),"w") as ofile:
           arr = self.chain[index:index+c+1]._d
           index+=c
           ofile.write("# "+"\t".join(arr.keys())+"\n")
@@ -710,7 +710,7 @@ class folder:
             for k in list(arr.keys())[2:]:
               ofile.write("%.6e\t"%arr[k][j])
             ofile.write("\n")
-      with open(os.path.join(fname,str(date.today())+"_"+str(c)+"_.paramnames"),"w") as ofile:
+      with open(os.path.join(fname,str(date.today())+"_"+str(counts[0])+"_.paramnames"),"w") as ofile:
         for k in self.names[2:]:
           ofile.write("{} {}\n".format(k,self._texnames[k]))
       if self.logfile != {}:
@@ -1052,6 +1052,7 @@ class folder:
     spp.triangle_plot([gdfolder],colors=[color],
       line_args=({'color':c} if color else None), **kwargs)
     self._add_point(spp,add_point)
+    return spp
 
   def _add_point(self, spp, add_point, names=None,zorder=None):
     if spp==None or add_point==None:
