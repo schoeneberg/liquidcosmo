@@ -3,10 +3,10 @@ from .folder import folder
 from .matplotlib_defaults import default_settings
 from itertools import cycle
 class foldercollection:
-  
+
   def __init__(self):
     self.folderlist = []
-    
+
   @classmethod
   def load(obj, *args, **kwargs):
     a = obj()
@@ -113,6 +113,17 @@ class foldercollection:
   @property
   def lens(self):
     return [f.lens for f in self.folderlist]
+  def merge(self,basechain=0):
+    lensums = np.concatenate([[0],np.cumsum(self.lens)])
+    tot_len = lensums[-1]
+    obj = self.folderlist[basechain].deepcopy()
+    obj.chain.N = tot_len
+    for i,name in enumerate(obj.names):
+      obj.chain[name] = np.empty(tot_len) # destroy it all first (keeping only metainfo)
+    for j, fo in enumerate(self.folderlist):
+      for i,name in enumerate(obj.names):
+        obj.chain[name][lensums[j]:lensums[j+1]] = fo.chain[name]
+    return obj
   def _readjust_bounds(self):
     res = self.copy()
     fbounds = [f.get_bounds() for f in res.folderlist]
@@ -162,13 +173,17 @@ class foldercollection:
   def __getitem__(self,q):
     if isinstance(q,(int,np.integer)):
       return [f[q] for f in self.folderlist]
+    elif isinstance(q,slice):
+      res = foldercollection()
+      res.folderlist = self.folderlist[q]
+      return res
     elif not isinstance(q,str):
       res = foldercollection()
       flag = False
       for f in self.folderlist:
         commonset = set(q).intersection(set(f.names))
         if commonset:
-          res.folderlist.append(f[list(commonset)])
+          res.folderlist.append(f[list(name for name in q if name in commonset)])
           flag = True
       if not flag:
         raise Exception("Could not find any of '{}' in any of the folders contained in this collection.".format(q))
