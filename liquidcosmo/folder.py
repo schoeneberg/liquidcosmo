@@ -118,7 +118,7 @@ class folder:
     return a
 
   # -- Load a given chain (for a given full filename)
-  def __ldchain__(filename,verbose=False,precision_mode=False):
+  def __ldchain__(filename,verbose=False,precision_mode=False,checkbroken=False):
     # This should all be effectively equivalent to (but vastly faster and more memory efficient than)
     #arr = np.genfromtxt(filename).T
     if verbose:
@@ -156,14 +156,31 @@ class folder:
         i+=1
       return i
 
+    # A check to see if the last line of a file is broken for some reason
+    def check_last_line(f,numitems):
+      check_last_line = f.seek(0, 2)
+      current = f.tell()
+      #should be MORE than enough to catch last line (40 characters per item)
+      leng = numitems*40
+      if current < leng:
+        leng=current
+      f.seek(current-leng)
+      read = f.read(leng)
+      if read.count('\n')<1:
+        return False
+      else:
+        return len(read.split("\n")[-1].split())==0 and len(read.split("\n")[-2].split())==numitems
+
     # The actual code of the function
     with open(filename,"r",encoding="utf-8",errors='ignore') as f:
       linenum = fastread(f)
       numitems = get_num_items(f)
+      if linenum<=0 or numitems==0 or numitems==None:
+        return []
+      if checkbroken and not check_last_line(f,numitems):
+        raise Exception("File broken :: {} (last line is not proper)".format(filename))
       # The chain files are usually written at a relatively low precision, allowing us to use low precision representations. However, we still give the user the option to use full precision
       storage_type = (np.float64 if precision_mode == True else np.float32)
-      if linenum==0 or numitems==0:
-        return []
       arr = np.empty((linenum,numitems),dtype=storage_type)
       real_len = load_file(f,storage_type) # MODIFIES arr (!!)
       arr = arr[:real_len]
