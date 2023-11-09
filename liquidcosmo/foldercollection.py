@@ -163,8 +163,12 @@ class foldercollection:
     for i in range(len(gdfolders)):
       line_args[i].update({"color":colors[i%len(colors)]})
     contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
-    spp = get_subplot_plotter(settings=default_settings)
-    spp.triangle_plot(gdfolders,alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
+    spp = get_subplot_plotter(settings=default_settings,width_inch=kwargs.pop('width_inch',None),subplot_size_ratio=kwargs.pop('subplot_size_ratio',None))
+    rect = kwargs.pop('rectangle',None)
+    if rect != None:
+      spp.rectangle_plot(rect['x'],rect['y'],roots=gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
+    else:
+      spp.triangle_plot(gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
     # Delegate to first folder, to use same function
     self.folderlist[0]._add_point(spp,add_point,names=self.common_names)
     return spp
