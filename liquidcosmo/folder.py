@@ -66,6 +66,7 @@ class folder:
     self._log =  None
     self._confinfo = {}
     self.path = None
+    self.tag = None
 
   # copy this object
   def copy(self):
@@ -82,6 +83,7 @@ class folder:
     a._log = self._log
     a._confinfo = self._confinfo
     a.path = self.path
+    a.tag = self.tag
     return a
 
   # deepcopy this object
@@ -99,6 +101,7 @@ class folder:
     a._log = deepcopy(self._log)
     a._confinfo = deepcopy(self._confinfo)
     a.path = deepcopy(self.path)
+    a.tag = deepcopy(self.tag)
     return a
 
   # Construct a folder object (containing multiple physical chains) from a path
@@ -114,6 +117,7 @@ class folder:
     a._log = None
     a._confinfo = {}
     a.path = os.path.abspath(a._foldername)
+    a.tag = os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path)
     a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout)
     return a
 
@@ -1040,19 +1044,11 @@ class folder:
     retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is True else None),name=(par if withname is False else None),equalize=self.__equalize_errors) for par in parnames])
     return retstr
 
-  def plot_getdist(self, ax=None,color=None,add_point=None,**kwargs):
-    from getdist.plots import get_subplot_plotter
-    gdfolder = self.to_getdist()
-    ana_set = kwargs.pop('analysis_settings',None)
-    if ana_set is not None:
-        gdfolder.updateSettings(settings=ana_set)
-    spp = get_subplot_plotter(settings=default_settings)
-    if 'filled' not in kwargs:
-      kwargs['filled'] = True
-    spp.triangle_plot([gdfolder],colors=[color],
-      line_args=({'color':c} if color else None), **kwargs)
-    self._add_point(spp,add_point)
-    return spp
+  def plot_getdist(self, **kwargs):
+    from .foldercollection import foldercollection
+    fc = foldercollection()
+    fc.folderlist.append(self)
+    return fc.plot_getdist(**kwargs)
 
   def _add_point(self, spp, add_point, names=None,zorder=None):
     if spp==None or add_point==None:

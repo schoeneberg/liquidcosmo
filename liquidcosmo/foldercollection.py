@@ -150,6 +150,8 @@ class foldercollection:
         gdf.updateSettings(settings=ana_set)
     if 'filled' not in kwargs:
       kwargs['filled'] = True
+    if 'legend_labels' not in kwargs:
+      kwargs['legend_labels'] = [f.tag for f in res.folderlist]
     line_args = kwargs.pop('line_args',[{} for i in range(len(gdfolders))])
     if "linestyle" in kwargs:
       if isinstance(kwargs['linestyle'],(list,tuple,np.ndarray)):
@@ -172,6 +174,7 @@ class foldercollection:
     # Delegate to first folder, to use same function
     self.folderlist[0]._add_point(spp,add_point,names=self.common_names)
     return spp
+
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
