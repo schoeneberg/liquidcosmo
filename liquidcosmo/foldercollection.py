@@ -43,6 +43,9 @@ class foldercollection:
   @property
   def cosmopars(self):
     return [f.cosmopars() for f in self.folderlist]
+  @property
+  def tags(self):
+    return [f.tag for f in self.folderlist]
   def cov(self,parnames=None):
     return [f.cov(parnames=parnames) for f in self.folderlist]
   def mean(self,parnames=None,asdict=False):
