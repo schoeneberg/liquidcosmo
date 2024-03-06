@@ -182,7 +182,7 @@ class foldercollection:
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
     wants_sublist = (
-        or (isinstance(q,(tuple,list)) and all([isinstance(t,(int,np.integer)) for t in q]))
+        (isinstance(q,(tuple,list)) and all([isinstance(t,(int,np.integer)) for t in q]))
         or (isinstance(q,np.ndarray) and np.issubdtype(q.dtype, np.integer))
       )
     if isinstance(q,(int,np.integer)):
@@ -195,6 +195,9 @@ class foldercollection:
       return res
     elif wants_sublist:
       res = foldercollection()
+      for i in q:
+        if i>=len(self.folderlist) or i<0:
+          raise IndexError("{} folders contained in this collection, but asked for element {}".format(len(self.folderlist),i))
       res.folderlist = [self.folderlist[i] for i in q]
       return res
     elif not isinstance(q,str):
