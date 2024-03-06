@@ -181,7 +181,16 @@ class foldercollection:
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
-    if isinstance(q,(int,np.integer,slice)):
+    wants_sublist = (
+        isinstance(q,slice)
+        or (isinstance(q,(tuple,list)) and all(isinstance(q,(int,np.integer))))
+        or (isinstance(q,np.ndarray) and np.issubdtype(q.dtype, np.integer))
+      )
+    if isinstance(q,(int,np.integer)):
+      res = foldercollection()
+      res.folderlist = [self.folderlist[q]]
+      return res
+    elif wants_sublist:
       res = foldercollection()
       res.folderlist = self.folderlist[q]
       return res
