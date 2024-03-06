@@ -183,7 +183,7 @@ class foldercollection:
   def __getitem__(self,q):
     wants_sublist = (
         isinstance(q,slice)
-        or (isinstance(q,(tuple,list)) and all(isinstance(q,(int,np.integer))))
+        or (isinstance(q,(tuple,list)) and all([isinstance(t,(int,np.integer))) for t in q])
         or (isinstance(q,np.ndarray) and np.issubdtype(q.dtype, np.integer))
       )
     if isinstance(q,(int,np.integer)):
