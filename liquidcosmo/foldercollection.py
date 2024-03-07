@@ -143,7 +143,7 @@ class foldercollection:
       for par in bounds:
         f.set_range(par,lower=bounds[par][0],upper=bounds[par][1])
     return res
-  def plot_getdist(self,ax=None,colors=None,alphas=None,add_point=None,**kwargs):
+  def plot_getdist(self,ax=None,colors=None,alphas=None,add_point=None,contours=2,**kwargs):
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     gdfolders = [f.to_getdist() for f in res.folderlist]
@@ -169,6 +169,7 @@ class foldercollection:
       line_args[i].update({"color":colors[i%len(colors)]})
     contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
     spp = get_subplot_plotter(settings=default_settings,width_inch=kwargs.pop('width_inch',None),subplot_size_ratio=kwargs.pop('subplot_size_ratio',None))
+    spp.settings.num_plot_contours = contours
     rect = kwargs.pop('rectangle',None)
     if rect != None:
       spp.rectangle_plot(rect['x'],rect['y'],roots=gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
