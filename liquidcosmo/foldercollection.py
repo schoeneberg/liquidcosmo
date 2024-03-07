@@ -143,10 +143,32 @@ class foldercollection:
       for par in bounds:
         f.set_range(par,lower=bounds[par][0],upper=bounds[par][1])
     return res
+
+  def _define_contours(self,contours):
+    if isinstance(contours,(int, np.integer)):
+      if contours<0:
+        raise Exception("Negative number ({}) of contours doesn't really make sense.".format(contours))
+      else:
+        from scipy.special import erf
+        contours = np.array([erf((i+1.0)/np.sqrt(2.0)) for i in range(contours)])
+    elif isinstance(contours,(list,tuple,np.ndarray)):
+      for c in contours:
+        if c<0 or c>1:
+          raise Exception("Passed contours needs to be either a single integer, or a list of percentages between zero and one. Found {} in {}".format(c,contours))
+      contours = np.array(contours)
+    else:
+      raise Exception("Unrecognized option for contours : {}".format(contours))
+    return contours
+
+
+  # Careful: By default the 1sigma (0.683...), 2sigma (0.954...) contours are drawn, not the 0.68, 0.95
   def plot_getdist(self,ax=None,colors=None,alphas=None,add_point=None,contours=2,**kwargs):
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
+    contours = self._define_contours(contours)
     gdfolders = [f.to_getdist() for f in res.folderlist]
+    for gdf in gdfolders:
+      gdf.updateSettings({'contours': " ".join([str(c) for c in contours])})
     ana_set = kwargs.pop('analysis_settings',None)
     if ana_set is not None:
       for gdf in gdfolders:
@@ -169,7 +191,8 @@ class foldercollection:
       line_args[i].update({"color":colors[i%len(colors)]})
     contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
     spp = get_subplot_plotter(settings=default_settings,width_inch=kwargs.pop('width_inch',None),subplot_size_ratio=kwargs.pop('subplot_size_ratio',None))
-    spp.settings.num_plot_contours = contours
+
+    spp.settings.num_plot_contours = len(contours)
     rect = kwargs.pop('rectangle',None)
     if rect != None:
       spp.rectangle_plot(rect['x'],rect['y'],roots=gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
