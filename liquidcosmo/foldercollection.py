@@ -217,6 +217,12 @@ class foldercollection:
       res = foldercollection()
       res.folderlist = self.folderlist[q]
       return res
+    elif isinstance(q,np.ndarray) and np.issubdtype(q.dtype, np.bool_):
+      if not all([x==self.N[0] for x in self.N]):
+        raise Exception("Multiple folders with different lengths, so you cannot subindex with a boolean array")
+      res = foldercollection()
+      res.folderlist = [f[q] for f in self.folderlist]
+      return res
     elif wants_sublist:
       res = foldercollection()
       for i in q:
