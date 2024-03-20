@@ -8,7 +8,6 @@ from datetime import date
 from collections import OrderedDict
 from copy import deepcopy
 from .matplotlib_defaults import default_settings
-from memory_profiler import profile
 from functools import partial
 
 class _lq_code_type:
@@ -203,6 +202,7 @@ class folder:
     if os.path.isfile(path):
       folder = os.path.dirname(path)
       allchains = [path]
+      code = _lq_code_type.montepython
     elif os.path.isdir(os.path.join("chains",path)):
       folder = os.path.join("chains",path)
       allchains, code = obj._get_chainnames(folder,kind=kind)
@@ -295,9 +295,7 @@ class folder:
       pool.close()
     pool.join()
 
-    for fa in reversed(filearr):
-      if fa==[] or fa.ndim<=1:
-        filearr.remove(fa)
+    filearr = [fa for fa in filearr if not ((isinstance(fa,list) and fa==[]) or fa.ndim<=1)]
 
     #filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
     if(len(filearr))==0:
