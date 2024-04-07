@@ -2,6 +2,8 @@ import numpy as np
 from .folder import folder
 from .matplotlib_defaults import default_settings
 from itertools import cycle
+from .util import RaggedArray
+
 class foldercollection:
 
   def __init__(self):
@@ -205,6 +207,8 @@ class foldercollection:
   def to_getdist(self):
     return [f.to_getdist() for f in self.folderlist]
   def __getitem__(self,q):
+    if len(self.folderlist)==1:
+      return self.folderlist[0][q]
     wants_sublist = (
         (isinstance(q,(tuple,list)) and all([isinstance(t,(int,np.integer)) for t in q]))
         or (isinstance(q,np.ndarray) and np.issubdtype(q.dtype, np.integer))
@@ -216,6 +220,15 @@ class foldercollection:
     elif isinstance(q,slice):
       res = foldercollection()
       res.folderlist = self.folderlist[q]
+      return res
+    elif isinstance(q,RaggedArray):
+      if not len(q.data)==len(self.folderlist):
+        raise Exception("Invalid dimension of RaggedAray for this folderlist: expected {} but got {} dimensions".format(len(self.folderlist),len(q.data)))
+      res = self.copy()
+      for i in range(len(self.folderlist)):
+        if not len(q.data[i]) == self.folderlist[i].N:
+          raise Exception("In dimension {} of RaggedArray, mismatch of lengths: expected {} but got {}".format(i, self.folderlist[i].N, len(q.data[i])))
+        res.folderlist[i] = res.folderlist[i][q.data[i]]
       return res
     elif isinstance(q,np.ndarray) and np.issubdtype(q.dtype, np.bool_):
       if not all([x==self.N[0] for x in self.N]):
@@ -252,7 +265,7 @@ class foldercollection:
           flag = True
       if not flag:
         raise Exception("Could not find '{}' in any of the folders contained in this collection.".format(q))
-      return np.array(res,dtype=object)
+      return RaggedArray(res)
   def keep_only(self,*q):
     if isinstance(q,(int,np.integer)) or isinstance(q,str):
       return self[q]

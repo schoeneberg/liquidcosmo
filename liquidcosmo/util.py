@@ -1,4 +1,5 @@
 import numpy as np
+import numbers
 _round_exponential_max = 5
 _round_exponential_min = -5
 def round_reasonable(val, errp=None,errm=None , digits=1, equalize=0.0):
@@ -71,3 +72,94 @@ def round_reasonable(val, errp=None,errm=None , digits=1, equalize=0.0):
         return "{"+"{:.{acc}f}".format(val,acc=-first_sigfig+digits)+"}^{+"+pluserrstr+"}_{-"+minuserrstr+"}"
       else:
         return "{:.{acc}f}".format(val,acc=-first_sigfig+digits)+" \pm "+"{:.{acc}f}".format(errp,acc=-first_sigfig+digits)
+
+# Since by default lists of arrays don't permit many operations, we define them here
+class RaggedArray:
+  def __init__(self, data):
+    self.data = np.fromiter((np.array(d) for d in data),dtype=object)
+
+  def __checked_op__(self, a, opname):
+    if isinstance(a, RaggedArray):
+      self.__check_compatible(a)
+      return RaggedArray(np.fromiter((getattr(d, opname)(a.data[i]) for i,d in enumerate(self.data)),dtype=object))
+    elif isinstance(a, numbers.Number):
+      return RaggedArray(np.fromiter((getattr(d, opname)(a) for d in self.data),dtype=object))
+    else:
+      raise ValueError("Unknown operation '{}' for RaggedArray and {}".format(opname,a.__class__()))
+
+  def __abs__(self):
+    return RaggedArray(np.fromiter((d.__abs__() for d in self.data),dtype=object))
+  def __add__(self, a):
+    return self.__checked_op__(a, '__add__')
+  def __ceil__(self):
+    return RaggedArray(np.fromiter((d.__ceil__() for d in self.data),dtype=object))
+  def __floor__(self):
+    return RaggedArray(np.fromiter((d.__floor__() for d in self.data),dtype=object))
+  def __floordiv__(self, a):
+    return self.__checked_op__(a, '__floordiv__')
+  def __divmod__(self, a):
+    return self.__checked_op__(a, '__divmod__')
+  def __eq__(self, a):
+    return self.__checked_op__(a, '__eq__')
+  def __ge__(self, a):
+    return self.__checked_op__(a, '__ge__')
+  def __gt__(self, a):
+    return self.__checked_op__(a, '__gt__')
+  def __le__(self, a):
+    return self.__checked_op__(a, '__le__')
+  def __lt__(self, a):
+    return self.__checked_op__(a, '__lt__')
+  def __mod__(self, a):
+    return self.__checked_op__(a, '__mod__')
+  def __mul__(self, a):
+    return self.__checked_op__(a, '__mul__')
+  def __ne__(self, a):
+    return self.__checked_op__(a, '__ne__')
+  def __neq__(self):
+    return RaggedArray(np.fromiter((d.__neg__() for d in self.data),dtype=object))
+  def __pow__(self, a):
+    return self.__checked_op__(a, '__pow__')
+  def __rsub__(self, a):
+    return self.__checked_op__(a, '__rsub__')
+  def __rmul__(self, a):
+    return self.__checked_op__(a, '__rmul__')
+  def __rdiv__(self, a):
+    return self.__checked_op__(a, '__rdiv__')
+  def __rtruediv__(self, a):
+    return self.__checked_op__(a, '__rtruediv__')
+  def __rfloordiv__(self, a):
+    return self.__checked_op__(a, '__rfloordiv__')
+  def __rmod__(self, a):
+    return self.__checked_op__(a, '__rmod__')
+  def __rdivmod__(self, a):
+    return self.__checked_op__(a, '__rdivmod__')
+  def __rpow__(self, a):
+    return self.__checked_op__(a, '__rpow__')
+  def __rlshift__(self, a):
+    return self.__checked_op__(a, '__rlshift__')
+  def __rrshift__(self, a):
+    return self.__checked_op__(a, '__rrshift__')
+  def __truediv__(self, a):
+    return self.__checked_op__(a, '__truediv__')
+  def __sub__(self, a):
+    return self.__checked_op__(a, '__sub__')
+  def __trunc__(self, a):
+    return self.__checked_op__(a, '__trunc__')
+
+  def __getitem__(self,q):
+    return self.data[q]
+  def __setitem__(self,q,v):
+    self.data[q] = v
+  def __repr__(self):
+    return "RaggedArray[{}]".format(",".join([repr(d) for d in self.data]))
+  def __str__(self):
+    return "RaggedArray[{}]".format(",".join([str(d) for d in self.data]))
+  def __check_compatible(self, a):
+    if not isinstance(a,RaggedArray):
+      raise Exception("Comparing compatibility with non-RaggedArray")
+    if len(self.data)!=len(a.data):
+      raise ValueError("Incompatible length of RaggedArray ({} vs {})".format(len(self),len(a)))
+    broadcastable = True
+    for i in range(len(self.data)):
+      if not all((m == n) or (m == 1) or (n == 1) for m, n in zip(self.data[i].shape[::-1], a.data[i].shape[::-1])):
+        raise ValueError("Dimension {} of RaggedArray is not compatible ({} vs {})".format(i, self.data[i].shape, a.data[i].shape))
