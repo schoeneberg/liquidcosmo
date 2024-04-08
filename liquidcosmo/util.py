@@ -146,6 +146,9 @@ class RaggedArray:
   def __trunc__(self, a):
     return self.__checked_op__(a, '__trunc__')
 
+  # Interoperability with numpy
+  def __array_ufunc__(self, *args, **kwargs):
+    return RaggedArray(np.fromiter((args[0].__call__(d) for d in self.data), dtype=object))
   def __getitem__(self,q):
     return self.data[q]
   def __setitem__(self,q,v):
