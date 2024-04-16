@@ -118,6 +118,11 @@ class foldercollection:
   @property
   def lens(self):
     return [f.lens for f in self.folderlist]
+  def cut(self, first=0., last=1., thin=1):
+    obj = self.deepcopy()
+    for i in range(len(obj.folderlist)):
+      obj.folderlist[i] = obj.folderlist[i].cut(first=first,last=last,thin=thin)
+    return obj
   def merge(self,basechain=0):
     lensums = np.concatenate([[0],np.cumsum(self.lens)])
     tot_len = lensums[-1]
@@ -128,6 +133,10 @@ class foldercollection:
     for j, fo in enumerate(self.folderlist):
       for i,name in enumerate(obj.names):
         obj.chain[name][lensums[j]:lensums[j+1]] = fo.chain[name]
+    obj.lens = np.diff(lensums)
+    obj._allchains = []
+    for j, fo in enumerate(self.folderlist):
+      obj._allchains.extend(self.folderlist[j]._allchains)
     return obj
   def _readjust_bounds(self):
     res = self.copy()
@@ -214,9 +223,7 @@ class foldercollection:
         or (isinstance(q,np.ndarray) and np.issubdtype(q.dtype, np.integer))
       )
     if isinstance(q,(int,np.integer)):
-      res = foldercollection()
-      res.folderlist = [self.folderlist[q]]
-      return res
+      return self.folderlist[q]
     elif isinstance(q,slice):
       res = foldercollection()
       res.folderlist = self.folderlist[q]

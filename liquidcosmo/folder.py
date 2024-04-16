@@ -679,7 +679,7 @@ class folder:
     coll = foldercollection()
     index = 0
     for i,c in enumerate(counts):
-      fo = self.deepcopy()
+      fo = self.deepcopy() #copy all info (like log.param), rest will be changed below anyway
       chain = self.chain[index:index+c]
       fo._narr = chain
       fo._arr = None #Technically not necessary, but let's do it for safety
@@ -688,6 +688,20 @@ class folder:
       coll.folderlist.append(fo)
       index+=c
     return coll
+
+  def cut(self,first=0.0,last=1.0,thin=1):
+    if len(self.lens)==1:
+      fo = self.deepcopy()
+      fo = fo[int(fo.N*first):int(fo.N*last)+1:thin]
+      fo.lens[0] = fo.N
+      if(fo.N<1):
+        raise ValueError("Could not cut array, since less than 1 element survived")
+      return fo
+    else:
+      fc = self.deepcopy().to_individual()
+      for i in range(len(fc.folderlist)):
+        fc.folderlist[i] = fc.folderlist[i].cut(first=first,last=last,thin=thin)
+      return fc.merge()
 
   def write(self, fname, codetype="montepython"):
     if not (codetype=="montepython" or codetype=="Montepython" or codetype=="MontePython" or codetype=="MONTEPYTHON"):
