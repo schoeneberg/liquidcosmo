@@ -1153,14 +1153,19 @@ class folder:
   def to_class_dict(self):
     names = self.names[2:]
     samples = self.samples
-    if self.logfile != {}:
+    if self.logfile == {}:
+      arginfo = {}
+    else:
       arginfo = self.logfile['arginfo']
+    # Define dict before reading so that we can attach things to it during reading of logfile
+    retdict = arginfo.copy()
+    if self.logfile != {}:
       parinfo = self.logfile['parinfo']
       # Make sure for the class_dict to only copy the cosmo arguments, not nuisance or derived
       newnames= []
       newsamples = []
       for par in parinfo:
-        if(parinfo[par]['type']=='cosmo'):
+        if(parinfo[par]['type']=='cosmo' and parinfo[par]['initialsigma']!=0):
           try:
             ipar = np.nonzero([name==par for name in names])[0][0]
           except IndexError as ie:
@@ -1171,14 +1176,13 @@ class folder:
               raise
           newnames.append(par)
           newsamples.append(samples[ipar])
+        else:
+          retdict.update({par:parinfo[par]['initial']})
       names = newnames
       samples = np.array(newsamples).T
     else:
-      arginfo = {}
       samples = samples.T
     retlist = []
-    # By defining the dict here, we can reuse it in the loop, saving computational time
-    retdict = arginfo.copy()
     retdict.update({name:samples[0][iname] for iname,name in enumerate(names)})
     retlist.append(retdict)
     for i in range(1,self.N):
