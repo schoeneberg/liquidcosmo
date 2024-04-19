@@ -105,7 +105,7 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60):
+  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60, tag=None):
     a = obj()
     a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix, a._code = obj._resolve_chainname(path, kind=kind)
@@ -116,7 +116,7 @@ class folder:
     a._log = None
     a._confinfo = {}
     a.path = os.path.abspath(a._foldername)
-    a.tag = os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path)
+    a.tag = (os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path) if tag==None else tag)
     a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout)
     return a
 

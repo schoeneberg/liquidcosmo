@@ -10,13 +10,17 @@ class foldercollection:
     self.folderlist = []
 
   @classmethod
-  def load(obj, *args, **kwargs):
+  def load(obj, *args, tags=None, **kwargs):
     a = obj()
     if len(args) == 1:
       newargs = args[0]
     else:
       newargs = list(args)
-    a.folderlist = [folder.load(arg,**kwargs) for arg in newargs]
+    if tags!=None and len(tags)!=len(newargs):
+      raise Exception("Not as many tags ({}) as files to load ({})".format(len(tags),len(newargs)))
+    if tags==None:
+      tags = [None for i in range(len(newargs))]
+    a.folderlist = [folder.load(arg,tag=tags[ifolder],**kwargs) for ifolder,arg in enumerate(newargs)]
     return a
 
   @property
