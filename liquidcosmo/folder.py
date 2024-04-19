@@ -120,6 +120,33 @@ class folder:
     a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout)
     return a
 
+  @classmethod
+  def loadbestfit(obj, path, verbose=0, tag=None):
+    a = obj()
+    a.verbose = verbose
+    if not os.path.isfile(path):
+      raise Exception("Need to point 'loadbestfit' function to a bestfit file. Could not open {}".format(path))
+    a._foldername = os.path.dirname(path)
+    a._allchains = []
+    a._chainprefix = ""
+    a._code = _lq_code_type.montepython
+    a.lens = [1]
+    a._arr = None
+    a._narr = None
+    a._log = None
+    a._confinfo = {}
+    a.path = os.path.abspath(a._foldername)
+    a.tag = (os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path) if tag==None else tag)
+    arrdict = OrderedDict({'N':np.array([1],dtype=int),'lnp':np.array([0],dtype=float)})
+    with open(path,"r") as inf:
+      names = [x.strip() for x in inf.readline()[1:].split(",")]
+      vals = [float(x) for x in inf.readline().split() if x]
+      for name, val in zip(names,vals):
+        arrdict[name] = np.array([val],dtype=float)
+    a._narr = chain(arrdict)
+    a._texnames = names
+    return a
+
   # -- Load a given chain (for a given full filename)
   def __ldchain__(filename,verbose=False,precision_mode=False,checkbroken=False):
     # This should all be effectively equivalent to (but vastly faster and more memory efficient than)

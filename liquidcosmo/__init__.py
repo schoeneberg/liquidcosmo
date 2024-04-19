@@ -11,6 +11,8 @@ def load_chain(path,**kwargs):
   return folder.load(path,**kwargs).get_chain()
 def load_manually(paths,**kwargs):
   return folder.load_manually(path,**kwargs)
+def loadbestfit(path,**kwargs):
+  return folder.loadbestfit(path,**kwargs)
 #variational NN similar to GP
 
 # TODO :: Update this method
