@@ -173,7 +173,7 @@ class foldercollection:
 
 
   # Careful: By default the 1sigma (0.683...), 2sigma (0.954...) contours are drawn, not the 0.68, 0.95
-  def plot_getdist(self,ax=None,colors=None,alphas=None,add_point=None,contours=2,**kwargs):
+  def plot_getdist(self,ax=None,colors=None,alphas=None,add_point=None,show=False,contours=2,**kwargs):
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     contours = self._define_contours(contours)
@@ -211,6 +211,9 @@ class foldercollection:
       spp.triangle_plot(gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
     # Delegate to first folder, to use same function
     self.folderlist[0]._add_point(spp,add_point,names=self.common_names)
+    if show:
+      import matplotlib.pyplot as plt
+      plt.show()
     return spp
 
   def to_getdist(self):
