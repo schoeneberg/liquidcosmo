@@ -191,7 +191,7 @@ class foldercollection:
     if 'filled' not in kwargs:
       kwargs['filled'] = True
     if 'legend_labels' not in kwargs:
-      kwargs['legend_labels'] = [f.tag for f in res.folderlist]
+      kwargs['legend_labels'] = [self._rectify_tag(f.tag) for f in res.folderlist]
     line_args = kwargs.pop('line_args',[{} for i in range(len(gdfolders))])
     if "linestyle" in kwargs:
       if isinstance(kwargs['linestyle'],(list,tuple,np.ndarray)):
@@ -307,4 +307,6 @@ class foldercollection:
         f[q] = v
   def __str__(self):
     return "Folderlist"+str(self.folderlist)
+  def _rectify_tag(self, tag):
+    return tag.replace("_","\_")
 
