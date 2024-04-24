@@ -177,7 +177,7 @@ class foldercollection:
 
 
   # Careful: By default the 1sigma (0.683...), 2sigma (0.954...) contours are drawn, not the 0.68, 0.95
-  def plot_getdist(self,ax=None,colors=None,alphas=None,add_point=None,show=False,contours=2,**kwargs):
+  def plot_getdist(self,colors=None,alphas=None,add_point=None,show=False,contours=2,**kwargs):
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     contours = self._define_contours(contours)
