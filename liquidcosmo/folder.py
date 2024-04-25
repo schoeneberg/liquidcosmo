@@ -1125,6 +1125,8 @@ class folder:
         constraints[parname] = [[lowbound,upbound],"+-"]
     return constraints
 
+  def texconstraints(self,**kwargs):
+    return self.texconstraint(**kwargs)
   def texconstraint(self,parnames=None,withdollar=True,withname=True):
     if parnames is None:
       parnames = self.names[2:]

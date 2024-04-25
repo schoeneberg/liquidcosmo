@@ -62,6 +62,8 @@ class foldercollection:
     return [f.credible(parnames=parnames,p=p,sigma=sigma,twoside=twoside,upper=upper) for f in self.folderlist]
   def constraint(self,parnames=None):
     return [f.constraint(parnames=parnames) for f in self.folderlist]
+  def texconstraints(self,**kwargs):
+    return self.texconstraint(**kwargs)
   def texconstraint(self,parnames=None,withname=True):
     return [f.texconstraint(parnames=parnames,withname=withname) for f in self.folderlist]
   def names(self):

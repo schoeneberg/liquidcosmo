@@ -1,0 +1,66 @@
+def _hdi(ary, hdi_prob, circular, skipna):
+    """Compute hpi over the flattened array."""
+    ary = ary.flatten()
+    if skipna:
+        nans = np.isnan(ary)
+        if not nans.all():
+            ary = ary[~nans]
+    n = len(ary)
+
+    ary = np.sort(ary)
+    interval_idx_inc = int(np.floor(hdi_prob * n))
+    n_intervals = n - interval_idx_inc
+    print(interval_idx_inc,n_intervals)
+    interval_width = np.subtract(ary[interval_idx_inc:], ary[:n_intervals], dtype=np.float_)
+    print(interval_width)
+    print(ary[interval_idx_inc:].shape, ary[:n_intervals].shape)
+
+    if len(interval_width) == 0:
+        raise ValueError("Too few elements for interval calculation. ")
+
+    min_idx = np.argmin(interval_width)
+    print(interval_width[min_idx])
+    hdi_min = ary[min_idx]
+    hdi_max = ary[min_idx + interval_idx_inc]
+
+    hdi_interval = np.array([hdi_min, hdi_max])
+
+    return hdi_interval
+    
+    def _eti(ary, eti_prob, circular, skipna):
+    """Compute hpi over the flattened array."""
+    ary = ary.flatten()
+    if skipna:
+        nans = np.isnan(ary)
+        if not nans.all():
+            ary = ary[~nans]
+    n = len(ary)
+
+    ary = np.sort(ary)
+    interval_idx_inc = int(np.floor(eti_prob * n))
+    print(interval_idx_inc)
+    return [ary[-interval_idx_inc],ary[interval_idx_inc]]
+
+#x = np.random.rand(500000)
+x = np.random.normal(loc=0.5,scale=0.1,size=500000)
+d = x#np.exp(10*x)
+print(d)
+prob = 0.682689492137086
+a,b = _hdi(d,prob,circular=False,skipna=False)
+alol,blol = _eti(d,prob,circular=False,skipna=False)
+print(a,b)
+print(alol,blol,(blol-alol)/2.)
+print(np.quantile(d,q=(1-prob)/2.),np.quantile(d,q=1-(1-prob)/2.),(np.quantile(d,q=1-(1-prob)/2.)-np.quantile(d,q=(1-prob)/2.))/2.)
+print((b-a)/2.,np.std(d))
+    
+print(prob)
+from scipy.stats import norm
+a_p,b_p = norm.ppf((1-prob)/2.), norm.isf((1-prob)/2.)
+a_real,b_real = (a_p*0.1+0.5,b_p*0.1+0.5)
+
+
+import matplotlib.pyplot as plt
+plt.hist(d,bins=100)
+plt.axvspan(a,b,color="red",alpha=0.5)
+plt.axvline(a_real,color="black")
+plt.axvline(b_real,color="black")
