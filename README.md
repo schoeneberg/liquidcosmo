@@ -133,10 +133,11 @@ Converts the folder into a `MCSamples` object from `getdist`
 
 	fo.plot_getdist([ax, colors, alphas, add_point, show, contours, **kwargs])
 
-This plots the object by first converting them to an `MCSamples` object , and the invoking the plot option. The `alphas` specifies the transparency as an `alpha` values for each contour. The `add_point` adds a new point (as vertical/horizontal lines) to the plot. `show` invokes `matplotlib.pyplot.show` at the end of the function. The `contours` says how many contours should be drawn, either as an integer (number of sigma intervals) or as a list of percentages. Finally, `kwargs` is a list of additional keyword arguments that will generally be passed to the `triangle_plot` or `rectangle_plot` function of `getdist`, except for a few exceptions
+This plots the object by first converting them to an `MCSamples` object , and the invoking the plot option. The `alphas` specifies the transparency as an `alpha` values for each contour. `show` invokes `matplotlib.pyplot.show` at the end of the function. The `contours` says how many contours should be drawn, either as an integer (number of sigma intervals) or as a list of percentages. Finally, `kwargs` is a list of additional keyword arguments that will generally be passed to the `triangle_plot` or `rectangle_plot` function of `getdist`, except for a few exceptions
  * `legend_labels` are the labels that should be in the legend of the plot.
  * `analysis_settings` are `getdist` analysis settings that are passed to the `updateSettings` function of `getdist`, see [this link here](https://getdist.readthedocs.io/en/latest/analysis_settings.html).
  * `linestyle` is a list of linestyles (or a single one) that should be applied to the lines (in the 1D posteriors)
  * Similarly, `line_args` is a list of dictionaries of the arguments for each line for each folder that is plotted.
  * If the option `rectangle` is included, it should be a dictionary containing `x` and `y` for the parameters to draw on the x-axis/y-axis, each one a list of parameter names, for example:
 	 `fo.plot_getdist(rectangle={'x':['a','b'],'y':['c','d','e']})`
+The `add_point` adds a new point (as vertical/horizontal lines) to the plot, but can also be used to include contours for a given parameter. The two notations are `add_point={'parname':[value, color]}` or `add_point={'parname':[mean, sigma, color]}`.
