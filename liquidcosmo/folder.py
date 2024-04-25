@@ -49,7 +49,7 @@ def tex_convert(constr,withdollar,mean,texname=None,name=None,equalize=2.5):
 class folder:
 
   __limit_safety_factor = 0.7
-  __equalize_errors = 2.0
+  __equalize_errors = 2.5
   __precision_mode = False
 
   def __init__(self):
@@ -1033,6 +1033,14 @@ class folder:
         return name+"{}"
       # Catch almost-trailing "_", always a problem
       if idx==len(name)-2:
+        if name[-1]=='_':
+          return name[:-2]+"\_\_"
+        elif name[-1]=="{":
+          return name[:-2]+"}"
+        elif name[-1]=="{":
+          return name[:-2]+"{"
+        else:
+          return name
         return name[:-2]+"\_"+name[-1]
       # Catch { after underscore, so latex treats everything inside {...} as its own thing
       if name[idx+1]=='{':
@@ -1056,8 +1064,16 @@ class folder:
     else:
       return name
 
+  def __rectify_control_characters(self, name):
+    replacedict = {"\n":r"\n","\t":r"\t","\a":r"\a","\r":r"\r"}
+    for re, rp in replacedict.items():
+      if re in name:
+        print(r"liquidcosmo :: /!\ warning, found control character '{}' in your variable name, turning into '{}'. Use r'name' strings to silence this warning!".format(rp,"'+'".join(list(rp))))
+        name = name.replace(re,rp)
+    return name
+
   def _rectify_texnames(self):
-    return [self._recursive_rectify(self._texnames[par]) for par in self.names[2:]]
+    return [self.__rectify_control_characters(self._recursive_rectify(self._texnames[par])) for par in self.names[2:]]
 
   def constraint(self,parnames=None):
     if parnames is None:
