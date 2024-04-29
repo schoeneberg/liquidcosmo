@@ -179,7 +179,7 @@ class foldercollection:
 
 
   # Careful: By default the 1sigma (0.683...), 2sigma (0.954...) contours are drawn, not the 0.68, 0.95
-  def plot_getdist(self,colors=None,alphas=None,add_point=None,show=False,contours=2,**kwargs):
+  def plot_getdist(self,colors=None,alphas=None,add_point=None,add_covmat=None,center_point=None, names=None,show=False,contours=2,**kwargs):
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     contours = self._define_contours(contours)
@@ -215,8 +215,16 @@ class foldercollection:
       spp.rectangle_plot(rect['x'],rect['y'],roots=gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
     else:
       spp.triangle_plot(gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
+
+    used_names = (self.common_names if not names else names)
     # Delegate to first folder, to use same function
-    self.folderlist[0]._add_point(spp,add_point,names=self.common_names)
+    self.folderlist[0]._add_point(spp,add_point,names=used_names)
+    if add_covmat == True:
+      if len(self.folderlist)>1:
+        raise ValueError("add_covmat=True not yet implemented for multiple folders")
+      add_covmat = self.folderlist[0].cov(parnames=used_names)
+      center_point = self.folderlist[0].mean(parnames=used_names)
+    self.folderlist[0]._add_covmat_around_center(spp,add_covmat,center_point,names=used_names)
     if show:
       import matplotlib.pyplot as plt
       plt.show()

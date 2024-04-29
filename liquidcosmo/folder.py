@@ -1258,6 +1258,54 @@ class folder:
       raise Exception("Could not find any of '{}' parameters in the generated plot provided as the 'spp' argument.".format(add_point.keys()))
     return
 
+  def _add_covmat_around_center(self, spp, add_covmat, center_point, names=None,zorder=None,**kwargs):
+    if spp is None or add_covmat is None or center_point is None:
+      return
+    if names is None:
+      names = self.names[2:]
+
+    if len(add_covmat)!=len(names):
+      raise ValueError("Expected 'add_covmat' of as many entries as names in folder, since no explicit names are provided")
+    if len(center_point)!=len(names):
+      raise ValueError("Expected 'center_point' of as many entries as names in folder, since no explicit names are provided")
+
+    from getdist.plots import ParamInfo
+    flag = False
+    # Iterate over all plotted subplots
+    for i, subplot_arr in enumerate(spp.subplots):
+      for j, subplot in enumerate(subplot_arr):
+        if subplot != None:
+          paramnames_for_subplot = [p.name if isinstance(p, ParamInfo) else p for p in subplot.getdist_params]
+          if len(paramnames_for_subplot)>1: # Non-diagonal
+            xparam, yparam = paramnames_for_subplot
+            if xparam in names and yparam in names:
+              ix, iy = names.index(xparam), names.index(yparam)
+
+              # Create ellipses
+              sigma_x = np.sqrt(add_covmat[ix,ix])
+              sigma_xy = add_covmat[ix,iy]
+              sigma_y = np.sqrt(add_covmat[iy,iy])
+
+              width = 2*np.sqrt(0.5*(sigma_x**2 + sigma_y**2)+np.sqrt((0.5*(sigma_x**2-sigma_y**2))**2+sigma_xy**2))
+              height = 2*np.sqrt(0.5*(sigma_x**2 + sigma_y**2)-np.sqrt((0.5*(sigma_x**2-sigma_y**2))**2+sigma_xy**2))
+              angle = 0.5*np.arctan(2.*sigma_xy/(sigma_x**2-sigma_y**2)) * 180./np.pi
+
+              ls = kwargs.pop("linestyle","--")
+              fill = kwargs.pop("fill",False)
+              ecol = kwargs.pop("edgecolor","black")
+
+              from matplotlib.patches import Ellipse
+              e1 = Ellipse(xy = [center_point[ix],center_point[iy]], width=width*1.52,height=height*1.52, angle=angle,linestyle=ls,fill=fill,edgecolor=ecol)
+              e2 = Ellipse(xy = [center_point[ix],center_point[iy]], width=width*2.48,height=height*2.48, angle=angle,linestyle=ls,fill=fill,edgecolor=ecol)
+
+              subplot.add_patch(e1)
+              subplot.add_patch(e2)
+              flag=True
+    if len(kwargs)>0:
+      raise ValueError("Arguments '{}' could not be read.".format(kwargs.keys()))
+    if not flag:
+      raise KeyError("Could not find any of '{}' parameters in the generated plot provided as the 'spp' argument.".format(add_point.keys()))
+    return
   def to_class_dict(self):
     names = self.names[2:]
     samples = self.samples
