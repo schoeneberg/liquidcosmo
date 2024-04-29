@@ -105,7 +105,7 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60, tag=None):
+  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60, tag=None, keep_non_markovian=True):
     a = obj()
     a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix, a._code = obj._resolve_chainname(path, kind=kind)
@@ -117,7 +117,7 @@ class folder:
     a._confinfo = {}
     a.path = os.path.abspath(a._foldername)
     a.tag = (os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path) if tag==None else tag)
-    a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout)
+    a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian)
     return a
 
   @classmethod
@@ -148,7 +148,7 @@ class folder:
     return a
 
   # -- Load a given chain (for a given full filename)
-  def __ldchain__(filename,verbose=False,precision_mode=False,checkbroken=False):
+  def __ldchain__(filename,verbose=False,precision_mode=False,checkbroken=False,keep_non_markovian=True):
     # This should all be effectively equivalent to (but vastly faster and more memory efficient than)
     #arr = np.genfromtxt(filename).T
     if verbose:
@@ -179,12 +179,15 @@ class folder:
     def load_file(f,storage_type):
       f.seek(0)
       i = 0
+      nm = 0
       for line in f:
         if line.startswith('#'):
+          if 'update proposal' in line:
+            nm = i
           continue
         arr[i] = [storage_type(f) for f in line.split()]
         i+=1
-      return i
+      return i, nm
 
     # A check to see if the last line of a file is broken for some reason
     def check_last_line(f,numitems):
@@ -212,8 +215,11 @@ class folder:
       # The chain files are usually written at a relatively low precision, allowing us to use low precision representations. However, we still give the user the option to use full precision
       storage_type = (np.float64 if precision_mode == True else np.float32)
       arr = np.empty((linenum,numitems),dtype=storage_type)
-      real_len = load_file(f,storage_type) # MODIFIES arr (!!)
-      arr = arr[:real_len]
+      real_len, non_markovian = load_file(f,storage_type) # MODIFIES arr (!!)
+      if keep_non_markovian:
+        arr = arr[:real_len]
+      else:
+        arr = arr[non_markovian:real_len]
 
     # Just some verbosity
     if verbose:
@@ -298,7 +304,7 @@ class folder:
     return allchains, code
 
   # -- Load all points from folder --
-  def _get_array(self,excludesmall=True,burnin_threshold=3,timeout=60):
+  def _get_array(self,excludesmall=True,burnin_threshold=3,timeout=60,keep_non_markovian=True):
     if self._arr is not None:
       return self._arr
 
@@ -310,7 +316,7 @@ class folder:
     sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     pool = multiprocessing.Pool(8)
     signal.signal(signal.SIGINT, sigint_handler)
-    loading_function = partial(folder.__ldchain__,precision_mode=self.__precision_mode)
+    loading_function = partial(folder.__ldchain__,precision_mode=self.__precision_mode,keep_non_markovian=keep_non_markovian)
     try:
       filearr = pool.map_async(loading_function, chainnames)
       filearr = filearr.get(timeout) # by default 60 seconds (timeout)
@@ -395,10 +401,10 @@ class folder:
     return retdict,texdict
 
   # Create the chain object (equivalent to a named dictionary or arrays)
-  def get_chain(self,excludesmall=True,burnin_threshold=5,timeout=60):
+  def get_chain(self,excludesmall=True,burnin_threshold=5,timeout=60,keep_non_markovian=True):
     if not (self._narr is None):
       return self._narr
-    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold,timeout=timeout)
+    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian)
     arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
     #arrdict = {'N':arr[0],'lnp':arr[1]}
     parnames, texnames = self._load_names()
