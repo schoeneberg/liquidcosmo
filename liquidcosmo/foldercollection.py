@@ -66,10 +66,15 @@ class foldercollection:
     return self.texconstraint(**kwargs)
   def texconstraint(self,parnames=None,withname=True):
     return [f.texconstraint(parnames=parnames,withname=withname) for f in self.folderlist]
+  @property
   def names(self):
-    return [f.names() for f in self.folderlist]
+    return [f.names for f in self.folderlist]
+  @property
   def common_names(self):
-    return list(set([f.names() for f in self.folderlist]))
+    ret = set()
+    for fonames in self.names:
+      ret = ret.union(set(fonames))
+    return list(ret)
   @property
   def d(self):
     return [f.d for f in self.folderlist]
