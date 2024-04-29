@@ -21,6 +21,12 @@ def load_manually(paths,**kwargs):
 # Load a bestfit file from montepython as a single-item chain
 def loadbestfit(path,**kwargs):
   return folder.loadbestfit(path,**kwargs)
+
+# Load from a cobaya sample object, or a pandas data object
+def load_from(dataobject,**kwargs):
+  return folder.load_from(dataobject,**kwargs)
+
+
 #variational NN similar to GP
 
 # TODO :: Update this method

@@ -147,6 +147,69 @@ class folder:
     a._texnames = names
     return a
 
+  @classmethod
+  def load_manually(obj, filenames,verbose=0, names=None,**kwargs):
+    if isinstance(filenames,str):
+      filenames = [filenames]
+    a = obj()
+    a.verbose = verbose
+    a._foldername = "MANUALLY_LOADED"
+    a._allchains = filenames
+    a._chainprefix = ""
+    a.lens = None
+    a._texnames = None
+    a._arr = None
+    a._narr = None
+    a._log = None
+    a.path = ""
+    arr = a._get_array(**kwargs)
+    arrprime = arr
+    if names:
+      if not isinstance(names[0],str):
+        raise Exception("The argument 'names' has to be a list of strings")
+      if not "N" in names:
+        raise Exception("The argument 'names' has to be a list of strings, containing at least 'N' and 'loglkl' or 'chi2' (missing: 'N')")
+      if (not "loglkl" in names) and (not "chi2" in names):
+        raise Exception("The argument 'names' has to be a list of strings, containing at least 'N' and 'loglkl' or 'chi2' (missing: 'loglkl' or 'chi2')")
+      if "loglkl" in names:
+        idx_loglkl = np.argmax(names=="loglkl")
+        fac_loglkl = 1.
+      else:
+        idx_loglkl = np.argmax(names=="chi2")
+        fac_loglkl = 0.5
+      idx_N = np.argmax(names=="N")
+    else:
+      idx_loglkl = 1
+      idx_N = 0
+      fac_loglkl = 1.
+      names = []
+
+    arrdict = OrderedDict({'N':arr[idx_N],'lnp':arr[idx_loglkl]*fac_loglkl})
+    for i in range(len(arr)):
+      #Fill in known parameters
+      if i<len(names):
+        if i==idx_loglkl or i==idx_N:
+          continue
+        arrdict[names[i]]=arr[i]
+      #Fill in unknown parameters
+      else:
+        arrdict["UNKNOWN.{}".format(i-len(names))]=arr[i]
+    a._narr = chain(arrdict)
+    a._texnames = {name:name for name in arrdict.keys()} #we don't try any re-naming
+    a._log = {}
+    return a
+
+  # Construct a folder object (containing multiple physical chains) from a data object
+  @classmethod
+  def load_from(obj, dataobj, verbose=0, burnin_threshold = 3, tag=None):
+    a = obj()
+    a.verbose = verbose
+    a._foldername, a._allchains, a._chainprefix, a._code = "from data object",["from data object"],"from data object",_lq_code_type.montepython
+    a.path = "from data object"
+    a.tag = tag if tag else "from data object"
+    a.convert_chain(dataobj,burnin_threshold=burnin_threshold)
+    return a
+
   # -- Load a given chain (for a given full filename)
   def __ldchain__(filename,verbose=False,precision_mode=False,checkbroken=False,keep_non_markovian=True):
     # This should all be effectively equivalent to (but vastly faster and more memory efficient than)
@@ -425,57 +488,49 @@ class folder:
     self._texnames = texnames
     return self._narr
 
-  @classmethod
-  def load_manually(obj, filenames,verbose=0, names=None,**kwargs):
-    if isinstance(filenames,str):
-      filenames = [filenames]
-    a = obj()
-    a.verbose = verbose
-    a._foldername = "MANUALLY_LOADED"
-    a._allchains = filenames
-    a._chainprefix = ""
-    a.lens = None
-    a._texnames = None
-    a._arr = None
-    a._narr = None
-    a._log = None
-    a.path = ""
-    arr = a._get_array(**kwargs)
-    arrprime = arr
-    if names:
-      if not isinstance(names[0],str):
-        raise Exception("The argument 'names' has to be a list of strings")
-      if not "N" in names:
-        raise Exception("The argument 'names' has to be a list of strings, containing at least 'N' and 'loglkl' or 'chi2' (missing: 'N')")
-      if (not "loglkl" in names) and (not "chi2" in names):
-        raise Exception("The argument 'names' has to be a list of strings, containing at least 'N' and 'loglkl' or 'chi2' (missing: 'loglkl' or 'chi2')")
-      if "loglkl" in names:
-        idx_loglkl = np.argmax(names=="loglkl")
-        fac_loglkl = 1.
-      else:
-        idx_loglkl = np.argmax(names=="chi2")
-        fac_loglkl = 0.5
-      idx_N = np.argmax(names=="N")
-    else:
-      idx_loglkl = 1
-      idx_N = 0
-      fac_loglkl = 1.
-      names = []
+  # Create the chain object (equivalent to a named dictionary or arrays)
+  def convert_chain(self,dataobj,burnin_threshold=5):
+    if not (self._narr == None):
+      return self._narr
 
-    arrdict = OrderedDict({'N':arr[idx_N],'lnp':arr[idx_loglkl]*fac_loglkl})
-    for i in range(len(arr)):
-      #Fill in known parameters
-      if i<len(names):
-        if i==idx_loglkl or i==idx_N:
-          continue
-        arrdict[names[i]]=arr[i]
-      #Fill in unknown parameters
-      else:
-        arrdict["UNKNOWN.{}".format(i-len(names))]=arr[i]
-    a._narr = chain(arrdict)
-    a._texnames = {name:name for name in arrdict.keys()} #we don't try any re-naming
-    a._log = {}
-    return a
+    if hasattr(dataobj,"_data"):
+      data = getattr(dataobj,"_data")
+    else:
+      data = dataobj
+
+    names = list(data.columns)
+
+    if (self._arr == None):
+
+      self.lens = [len(data.index)]
+
+      self._arr = [data[name].to_numpy() for name in names]
+
+    parnames = {name:i for i,name in enumerate(names)}
+
+    arr = self._arr
+
+    if (names[0]!='N' and names[0]!='weight'):
+      raise ValueError("Needs either 'N' or 'weight' in the first position of the loaded object, but only has '{}'".format(names))
+    if (names[1]!='lnp' and names[1]!='logp' and names[1]!='loglike' and names[1]!='minuslogpost'):
+      raise ValueError("Needs any of ['lnp','logp','loglike','minuslogpost'] in the second position of the loaded object, but only has '{}'".format(names))
+
+    arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
+    for index in range(2,len(arr)):
+      found = False
+      for key,value in parnames.items():
+        if value==index:
+          if not found:
+            arrdict[key]=arr[index]
+            found=True
+          else:
+            raise KeyError("Key {} was found twice (already in {})".format(key,arrdict.keys()))
+      if not found:
+        arrdict["UNKNOWN.{}".format(index)]=arr[index]
+    self._narr = chain(arrdict)
+    self._texnames = {name:name for name in names}
+
+    return self._narr
 
   # -- Whatever you do to a folder, typically you want to do to the underlying chain
   def __getitem__(self,q):
