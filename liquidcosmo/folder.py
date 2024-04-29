@@ -393,9 +393,11 @@ class folder:
         line = parnames.readline()
         if line[0]!="#":
           raise Exception("Malformed cobaya chain file? No header detected!")
-        names = [x for x in line[1:].split(" ") if x]
+        names = [x for x in line[1:-1].split(" ") if x]
         retdict = {name:i for i,name in enumerate(names)}
         texdict = {name:name for name in names}
+        if self.logfile != {}:
+          texdict = {name:self.logfile['parinfo'].get(name,{}).get('latex',name) for name in names}
     else:
       raise Exception("Missing code type (report to developer)")
     return retdict,texdict
