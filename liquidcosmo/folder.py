@@ -1032,7 +1032,7 @@ class folder:
         ranges={par:bounds[par] for par in names})
     return mcsamples
 
-  def _recursive_rectify(self, name):
+  def __recursive_rectify(self, name):
     name = name.replace(" ","")
     idx = name.find("_")
     if idx>=0:
@@ -1054,21 +1054,21 @@ class folder:
       if name[idx+1]=='{':
         idxclose = name[idx+2:].rfind("}")
         if idxclose>=0:
-          subthing = self._recursive_rectify(name[idx+2:idx+2+idxclose])
+          subthing = self.__recursive_rectify(name[idx+2:idx+2+idxclose])
           if idx+2+idxclose==len(name)-1:
             return name[:idx+2]+subthing+"}"
           if name[idx+2+idxclose+1]=='_':
-            return name[:idx+2]+subthing+"}\_"+self._recursive_rectify(name[idx+2+idxclose+2:])
-          return name[:idx+2]+subthing+"}"+self._recursive_rectify(name[idx+2+idxclose+2:])
+            return name[:idx+2]+subthing+"}\_"+self.__recursive_rectify(name[idx+2+idxclose+2:])
+          return name[:idx+2]+subthing+"}"+self.__recursive_rectify(name[idx+2+idxclose+1:])
         else:
-          return name[:idx+1]+"{}"+self._recursive_rectify(name[idx+2:])
+          return name[:idx+1]+"{}"+self.__recursive_rectify(name[idx+2:])
       # Catch double underscore -> In this case, they all have to be escaped
       if name[idx+1]=='_':
-        return name[:idx]+"\_\_"+self._recursive_rectify(name[idx+2:])
+        return name[:idx]+"\_\_"+self.__recursive_rectify(name[idx+2:])
       # If none of the above, check if there's another underscore two positions apart
       if name[idx+2]=='_':
-        return name[:idx+2]+"\_"+self._recursive_rectify(name[idx+3:])
-      return name[:idx+1]+self._recursive_rectify(name[idx+1:])
+        return name[:idx+2]+"\_"+self.__recursive_rectify(name[idx+3:])
+      return name[:idx+1]+self.__recursive_rectify(name[idx+1:])
     else:
       return name
 
@@ -1081,7 +1081,7 @@ class folder:
     return name
 
   def _rectify_texnames(self):
-    return [self.__rectify_control_characters(self._recursive_rectify(self._texnames[par])) for par in self.names[2:]]
+    return [self.__rectify_control_characters(self.__recursive_rectify(self._texnames[par])) for par in self.names[2:]]
 
   def constraint(self,parnames=None):
     if parnames is None:
