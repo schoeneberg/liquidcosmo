@@ -136,7 +136,13 @@ class folder:
     a._log = None
     a._confinfo = {}
     a.path = os.path.abspath(a._foldername)
-    a.tag = (os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path) if tag==None else tag)
+    if tag==None:
+      if a._code==_lq_code_type.montepython:
+        a.tag = os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path)
+      elif a._code==_lq_code_type.cobaya:
+        a.tag = os.path.basename(a._chainprefix)
+    else:
+      a.tag = tag
     arrdict = OrderedDict({'N':np.array([1],dtype=int),'lnp':np.array([0],dtype=float)})
     with open(path,"r") as inf:
       names = [x.strip() for x in inf.readline()[1:].split(",")]
@@ -305,22 +311,19 @@ class folder:
     elif os.path.isdir(path):
       folder = path
       allchains, code = obj._get_chainnames(folder,kind=kind)
-      prefix = obj._resolve_prefix(allchains[0])
     elif os.path.exists(os.path.join("chains",path)):
       folder = os.path.dirname(os.path.join("chains",path))
       allchains, code = obj._get_chainnames(folder,kind=kind)
-      prefix = obj._resolve_prefix(allchains[0])
     elif os.path.exists(os.path.join("chains",path+"__1.txt")):
       folder = os.path.dirname(os.path.join("chains",path+"__1.txt"))
       allchains, code = obj._get_chainnames(folder,kind=kind)
       allchains = [ch for ch in allchains if path in ch]
-      prefix = obj._resolve_prefix(allchains[0])
     else:
       folder = os.path.dirname(path)
-      if folder=="":
-        raise Exception("Could not find a chain from : "+path)
-      allchains = obj._get_chainnames(folder,kind=kind)
-    prefix = obj._resolve_prefix(allchains[0])
+      if folder=="" or not os.path.isdir(folder):
+        raise Exception("Could not find a chain from (check the folder name): "+path)
+      allchains, code = obj._get_chainnames(folder,kind="match:"+os.path.basename(path))
+    prefix = obj._resolve_prefix(np.sort(allchains)[0])
     return folder,allchains,prefix,code
 
   @classmethod
@@ -330,7 +333,7 @@ class folder:
     elif "_1.txt" in path:
       return path.split("_1.txt")[0]
     elif ".txt" in path:
-      return "".join(path.split(".")[:-2])
+      return ".".join(path.split(".")[:-2])
     else:
       raise Exception("Unrecognized path for prefix recognition (please report to developer): "+str(path))
   # -- Get the names of the given chains
@@ -360,6 +363,8 @@ class folder:
 
     elif kind=="all":
       allchains= [os.path.join(directory,chain) for chain in chain_targets]
+    elif kind.startswith("match:"):
+      allchains= [os.path.join(directory,chain) for chain in chain_targets if kind.replace("match:","") in chain]
 
     else:
       raise Exception("Kind can either be 'all' or 'newest'")
@@ -1097,14 +1102,14 @@ class folder:
       # Catch almost-trailing "_", always a problem
       if idx==len(name)-2:
         if name[-1]=='_':
-          return name[:-2]+"\_\_"
+          return name[:-2]+r"\_\_"
         elif name[-1]=="{":
           return name[:-2]+"}"
         elif name[-1]=="{":
           return name[:-2]+"{"
         else:
           return name
-        return name[:-2]+"\_"+name[-1]
+        return name[:-2]+r"\_"+name[-1]
       # Catch { after underscore, so latex treats everything inside {...} as its own thing
       if name[idx+1]=='{':
         idxclose = name[idx+2:].rfind("}")
@@ -1113,16 +1118,16 @@ class folder:
           if idx+2+idxclose==len(name)-1:
             return name[:idx+2]+subthing+"}"
           if name[idx+2+idxclose+1]=='_':
-            return name[:idx+2]+subthing+"}\_"+self.__recursive_rectify(name[idx+2+idxclose+2:])
+            return name[:idx+2]+subthing+r"}\_"+self.__recursive_rectify(name[idx+2+idxclose+2:])
           return name[:idx+2]+subthing+"}"+self.__recursive_rectify(name[idx+2+idxclose+1:])
         else:
           return name[:idx+1]+"{}"+self.__recursive_rectify(name[idx+2:])
       # Catch double underscore -> In this case, they all have to be escaped
       if name[idx+1]=='_':
-        return name[:idx]+"\_\_"+self.__recursive_rectify(name[idx+2:])
+        return name[:idx]+r"\_\_"+self.__recursive_rectify(name[idx+2:])
       # If none of the above, check if there's another underscore two positions apart
       if name[idx+2]=='_':
-        return name[:idx+2]+"\_"+self.__recursive_rectify(name[idx+3:])
+        return name[:idx+2]+r"\_"+self.__recursive_rectify(name[idx+3:])
       return name[:idx+1]+self.__recursive_rectify(name[idx+1:])
     else:
       return name
