@@ -116,7 +116,13 @@ class folder:
     a._log = None
     a._confinfo = {}
     a.path = os.path.abspath(a._foldername)
-    a.tag = (os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path) if tag==None else tag)
+    if tag==None:
+      if a._code==_lq_code_type.montepython:
+        a.tag = os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path)
+      elif a._code==_lq_code_type.cobaya:
+        a.tag = os.path.basename(a._chainprefix)
+    else:
+      a.tag = tag
     a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian)
     return a
 
