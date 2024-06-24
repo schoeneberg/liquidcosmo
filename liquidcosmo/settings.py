@@ -42,7 +42,11 @@ def get_colors():
 
   return colors
 
-def matplotlib_defaults(rwth_colors=4, backend=None, update_tex=True, update_size = [10,12,14]):
+# Make available to import (!)
+colors = get_colors()
+
+def matplotlib_defaults(selection='v1', backend=None, update_tex=True, update_size = [10,12,14]):
+  global default_colors
 
   # If required, set backend
   if backend:
@@ -74,38 +78,38 @@ def matplotlib_defaults(rwth_colors=4, backend=None, update_tex=True, update_siz
       print("UNABLE TO SET SIZES FOR MATPLOTLIB")
 
   colors = get_colors()
-  rwth_array = [colors['rwth'][c] for c in ['Blau','Grun','Rot','Hellblau','Lila','Schwarz','Magenta','Gelb','Petrol','Maigrun','Orange','Bordeaux','Turkis','Violett']]
-  rwth_array2 = [colors['MP'][c] for c in ['Red','Blue','Green','Orange','Purple','Grey']]
-  rwth_array3 = [colors['DCH'][c][0] for c in ['Red','Blue','Green','Orange','Purple','Grey','Turk','Black']]
-
-  rwth_array4 = [colors['v1'][c] for c in colors['v1'].keys()]
-
-  rwth_array5 = [colors['v1_CB'][c] for c in colors['v1_CB'].keys()]
-
-  selected_colors = None
-  if rwth_colors == 1:
-    selected_colors = rwth_array
-  elif rwth_colors == 2:
-    selected_colors = rwth_array2
-  elif rwth_colors == 3:
-    selected_colors = rwth_array3
-  elif rwth_colors == 4:
-    selected_colors = rwth_array4
-  elif rwth_colors == 5:
-    selected_colors = rwth_array5
+  
+  choice = {1:'v1',2:'v1_CB',3:'MP',4:'DCH',5:'rwth'}
+  if isinstance(selection,int) and selection>0 and selection<len(choice)+1:
+    cname = choice[selection]
+  elif selection in choice.values():
+    cname = selection
   else:
-    raise Exception("rwth_colors option can only be [1,2,3,4,5]")
+    raise ValueError("Unknown color choice '{}'".format(selection))
+
+  if cname == 'rwth':
+    carray = {c:colors[cname][c] for c in ['Blau','Grun','Rot','Hellblau','Lila','Schwarz','Magenta','Gelb','Petrol','Maigrun','Orange','Bordeaux','Turkis','Violett']}
+  elif cname == 'MP':
+    carray = {c:colors[cname][c] for c in ['Red','Blue','Green','Orange','Purple','Grey']}
+  elif cname=='DCH':
+    carray = {c:colors[cname][c][0] for c in ['Red','Blue','Green','Orange','Purple','Grey','Turk','Black']}
+  else:
+    carray = colors[cname]
+
+  selected_colors = list(carray.values())
+
   mpl.rcParams['axes.prop_cycle']  = mpl.cycler(color=selected_colors)
-  default_colors = selected_colors
+  default_colors = colors[cname]
+
   return selected_colors
 
 def initialize_plots(legend_frame = True, legend_fontsize = 15, axes_fontsize = 15, axes_labelsize = 20, **kwargs):
   global default_settings
-  colors = matplotlib_defaults(**kwargs)
+  my_colors = matplotlib_defaults(**kwargs)
   import getdist.plots
   gdplotsettings = getdist.plots.GetDistPlotSettings()
-  gdplotsettings.solid_colors = colors
-  gdplotsettings.line_styles = [("-",c) for c in colors]
+  gdplotsettings.solid_colors = my_colors
+  gdplotsettings.line_styles = [("-",c) for c in my_colors]
   gdplotsettings.solid_contour_palefactor = 0.5
   gdplotsettings.linewidth_contour = 2.0
   gdplotsettings.linewidth = 2.0

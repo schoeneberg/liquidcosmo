@@ -1,6 +1,6 @@
 import numpy as np
 from .folder import folder
-from .matplotlib_defaults import default_settings
+from .settings import default_settings
 from itertools import cycle
 from .util import RaggedArray
 

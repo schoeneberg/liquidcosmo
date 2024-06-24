@@ -7,7 +7,7 @@ import ast
 from datetime import date
 from collections import OrderedDict
 from copy import deepcopy
-from .matplotlib_defaults import default_settings
+from .settings import default_settings
 from functools import partial
 
 class _lq_code_type:

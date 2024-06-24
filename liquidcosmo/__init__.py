@@ -1,7 +1,9 @@
-from .matplotlib_defaults import initialize_plots
+from .settings import initialize_plots
 initialize_plots()
 from .folder import folder
 from .foldercollection import foldercollection
+
+from .settings import default_colors as colors
 
 # Load a chain generally
 def load(*args,**kwargs):
