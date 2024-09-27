@@ -66,12 +66,22 @@ def round_reasonable(val, errp=None,errm=None , digits=1, equalize=0.0):
       else:
         return "("+"{:.{acc}f}".format(val*10**(-first_sigfig),acc=digits)+" \pm "+pluserrstr+") \cdot 10^{"+str(first_sigfig)+"}"
     else:
-      pluserrstr = "{:.{acc}f}".format(errp,acc=-first_sigfig+digits)
-      minuserrstr = "{:.{acc}f}".format(errm,acc=-first_sigfig+digits)
-      if pluserrstr!=minuserrstr:
-        return "{"+"{:.{acc}f}".format(val,acc=-first_sigfig+digits)+"}^{+"+pluserrstr+"}_{-"+minuserrstr+"}"
+      if -first_sigfig+digits > 0:
+        pluserrstr = "{:.{acc}f}".format(errp,acc=-first_sigfig+digits)
+        minuserrstr = "{:.{acc}f}".format(errm,acc=-first_sigfig+digits)
+        if pluserrstr!=minuserrstr:
+          return "{"+"{:.{acc}f}".format(val,acc=-first_sigfig+digits)+"}^{+"+pluserrstr+"}_{-"+minuserrstr+"}"
+        else:
+          return "{:.{acc}f}".format(val,acc=-first_sigfig+digits)+" \pm "+"{:.{acc}f}".format(errp,acc=-first_sigfig+digits)
       else:
-        return "{:.{acc}f}".format(val,acc=-first_sigfig+digits)+" \pm "+"{:.{acc}f}".format(errp,acc=-first_sigfig+digits)
+        error_factor = 10**(first_sigfig-digits)
+        round_errp = int(round(errp/error_factor))*error_factor
+        round_errm = int(round(errm/error_factor))*error_factor
+        round_val = int(round(val/error_factor))*error_factor
+        if round_errp!=round_errm:
+          return "{"+"{:d}".format(round_val)+"}^{+"+"{:d}".format(round_errp)+"}_{-"+"{:d}".format(round_errm)+"}"
+        else:
+          return "{:d}".format(round_val)+" \pm "+"{:d}".format(round_errp)
 
 # Since by default lists of arrays don't permit many operations, we define them here
 class RaggedArray:
