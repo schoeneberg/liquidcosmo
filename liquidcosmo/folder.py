@@ -7,7 +7,6 @@ import ast
 from datetime import date
 from collections import OrderedDict
 from copy import deepcopy
-from .settings import default_settings
 from functools import partial
 
 class _lq_code_type:

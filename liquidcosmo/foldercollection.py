@@ -1,6 +1,6 @@
 import numpy as np
 from .folder import folder
-from .settings import default_settings
+from .settings import get_plot_settings
 from itertools import cycle
 from .util import RaggedArray
 
@@ -184,7 +184,7 @@ class foldercollection:
 
 
   # Careful: By default the 1sigma (0.683...), 2sigma (0.954...) contours are drawn, not the 0.68, 0.95
-  def plot_getdist(self,colors=None,alphas=None,add_point=None,add_covmat=None,center_point=None, names=None,show=False,contours=2,**kwargs):
+  def plot_getdist(self,colors=None,alphas=None,add_point=None,add_covmat=None,center_point=None, names=None,show=False,contours=2, tight_layout=True,**kwargs):
     from getdist.plots import get_subplot_plotter
     res = self._readjust_bounds()
     contours = self._define_contours(contours)
@@ -207,12 +207,12 @@ class foldercollection:
       else:
         line_args = [kwargs['linestyle'] for i in range(len(gdfolders))]
     if not colors:
-      cyc = cycle(default_settings.solid_colors)
+      cyc = cycle(get_plot_settings().solid_colors)
       colors = [next(cyc) for i in range(len(gdfolders))]
     for i in range(len(gdfolders)):
       line_args[i].update({"color":colors[i%len(colors)]})
     contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
-    spp = get_subplot_plotter(settings=default_settings,width_inch=kwargs.pop('width_inch',None),subplot_size_ratio=kwargs.pop('subplot_size_ratio',None))
+    spp = get_subplot_plotter(settings=get_plot_settings(),width_inch=kwargs.pop('width_inch',None),subplot_size_ratio=kwargs.pop('subplot_size_ratio',None))
 
     spp.settings.num_plot_contours = len(contours)
     rect = kwargs.pop('rectangle',None)
@@ -230,6 +230,9 @@ class foldercollection:
       add_covmat = self.folderlist[0].cov(parnames=used_names)
       center_point = self.folderlist[0].mean(parnames=used_names)
     self.folderlist[0]._add_covmat_around_center(spp,add_covmat,center_point,names=used_names)
+    if tight_layout:
+      import matplotlib.pyplot as plt
+      plt.tight_layout()
     if show:
       import matplotlib.pyplot as plt
       plt.show()

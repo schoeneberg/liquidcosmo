@@ -1,7 +1,7 @@
 import matplotlib as mpl
 
 default_colors = None
-default_settings = None
+plot_settings = None
 
 def get_colors():
   colors = {}
@@ -104,7 +104,7 @@ def matplotlib_defaults(selection='v1', backend=None, update_tex=True, update_si
   return selected_colors
 
 def initialize_plots(legend_frame = True, legend_fontsize = 15, axes_fontsize = 15, axes_labelsize = 20, **kwargs):
-  global default_settings
+  global plot_settings
   my_colors = matplotlib_defaults(**kwargs)
   import getdist.plots
   gdplotsettings = getdist.plots.GetDistPlotSettings()
@@ -116,10 +116,14 @@ def initialize_plots(legend_frame = True, legend_fontsize = 15, axes_fontsize = 
   gdplotsettings.legend_fontsize = legend_fontsize
   gdplotsettings.axes_fontsize = axes_fontsize
   gdplotsettings.axes_labelsize = axes_labelsize
-  default_settings = gdplotsettings
+  plot_settings = gdplotsettings
 
   if not legend_frame:
     g.settings.figure_legend_frame = False
 
   return gdplotsettings
 
+# Little trick to keep the other modules always referencing this exact instance of the plot settings
+def get_plot_settings():
+  global plot_settings
+  return plot_settings

@@ -4,6 +4,7 @@ from .folder import folder
 from .foldercollection import foldercollection
 
 from .settings import default_colors as colors
+from .settings import initialize_plots as set_plot_settings
 
 # Load a chain generally
 def load(*args,**kwargs):
