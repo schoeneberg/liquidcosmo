@@ -745,6 +745,12 @@ class folder:
             arginfo[parname]=ast.literal_eval(after.strip())
           elif "data.cosmo_arguments.update" in line:
             loginfo["command"] = ast.literal_eval(line.split("(",1)[1].rsplit(")",1)[0])
+          elif "data.emulator" in line:
+            if not "emulator" in loginfo:
+              loginfo["emulator"] = {}
+            before, after = line.split("=")
+            emuinfo_par = ast.literal_eval(before.split("[")[1].split("]")[0])
+            loginfo["emulator"][emuinfo_par] = after.strip()
           elif "data.path" in line:
             before,after = line.split("=")
             pathname = before.split("[")[1].split("]")[0]
@@ -756,6 +762,8 @@ class folder:
               lklopts[lkl]
             except:
               lklopts[lkl] = {}
+            if after.strip()=="Ellipsis":
+              after = "..."
             lklopts[lkl][optname] = ast.literal_eval(after.strip())
           else:
             raise Exception("Unrecognized line in log.param :\n",repr(line))
@@ -767,7 +775,7 @@ class folder:
         print("lklopts = ",lklopts)
       self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
     except Exception as e:
-      print(e)
+      print("ERROR reading logfile : ",e)
       self._log = {}
     return self._log
 
