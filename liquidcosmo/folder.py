@@ -12,6 +12,7 @@ from functools import partial
 class _lq_code_type:
   montepython = 0
   cobaya = 1
+  emcee = 2
 
 class obj_iterator:
   def __init__(self,obj):
@@ -120,6 +121,8 @@ class folder:
         a.tag = os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path)
       elif a._code==_lq_code_type.cobaya:
         a.tag = os.path.basename(a._chainprefix)
+      elif a._code==_lq_code_type.emcee:
+        a.tag = os.path.basename(a._chainprefix)
     else:
       a.tag = tag
     a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian)
@@ -145,6 +148,8 @@ class folder:
       if a._code==_lq_code_type.montepython:
         a.tag = os.path.basename(os.path.dirname(a.path) if not os.path.isdir(a.path) else a.path)
       elif a._code==_lq_code_type.cobaya:
+        a.tag = os.path.basename(a._chainprefix)
+      elif a._code==_lq_code_type.emcee:
         a.tag = os.path.basename(a._chainprefix)
     else:
       a.tag = tag
@@ -339,6 +344,8 @@ class folder:
       return path.split("_1.txt")[0]
     elif ".txt" in path:
       return ".".join(path.split(".")[:-2])
+    elif ".hdf5" in path:
+      return path.split(".hdf5")[0]
     else:
       raise Exception("Unrecognized path for prefix recognition (please report to developer): "+str(path))
   # -- Get the names of the given chains
@@ -357,6 +364,10 @@ class folder:
       code = _lq_code_type.montepython
       chain_targets = [chain for chain in allfilenames if np.any(["_{}.txt".format(i) in chain for i in range(100)])]
       delim = "_"
+    elif np.any([".hdf5" in chain for chain in allfilenames]):
+      code = _lq_code_type.emcee
+      chain_targets = [chain for chain in allfilenames if ".hdf5" in chain]
+      delim = ".hdf5"
     else:
       code = _lq_code_type.cobaya
       chain_targets = [chain for chain in allfilenames if ".txt" in chain]
@@ -475,10 +486,43 @@ class folder:
       raise Exception("Missing code type (report to developer)")
     return retdict,texdict
 
+  def get_chain_emcee(self):
+    if not (self._narr is None):
+      return self._narr
+    all_samples = []
+    all_log_prob_samples = []
+    for fname in self._allchains:
+      import emcee
+      reader = emcee.backends.HDFBackend(fname)
+      tau = reader.get_autocorr_time(tol=0)
+
+      if not any(np.isnan(tau)):
+        burnin = int(2 * np.max(tau))
+        thin = int(0.5 * np.min(tau))
+      else:
+        burnin =  int(0.2*reader.iteration)
+
+      thin = 1
+      samples = reader.get_chain(discard=burnin, flat=True, thin=thin)
+      log_prob_samples = reader.get_log_prob(discard=burnin, flat=True, thin=thin)
+
+      mask = log_prob_samples > np.max(log_prob_samples)-100
+      all_samples.append(samples[mask,:])
+      all_log_prob_samples.append(log_prob_samples[mask])
+    samples = np.vstack(all_samples)
+    log_prob_samples = np.concatenate(all_log_prob_samples)
+    arrdict = OrderedDict({'N':np.ones(len(log_prob_samples)),'lnp':log_prob_samples})
+    for ip in range(len(samples.T)):
+      arrdict['x{}'.format(ip)] = samples[:,ip]
+    self._narr = chain(arrdict)
+    self._texnames = {name:name for name in arrdict}
+
   # Create the chain object (equivalent to a named dictionary or arrays)
   def get_chain(self,excludesmall=True,burnin_threshold=5,timeout=60,keep_non_markovian=True):
     if not (self._narr is None):
       return self._narr
+    if self._code == _lq_code_type.emcee:
+      return self.get_chain_emcee()
     arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian)
     arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
     #arrdict = {'N':arr[0],'lnp':arr[1]}
@@ -503,7 +547,7 @@ class folder:
     if not (self._narr == None):
       return self._narr
 
-    if hasattr(dataobj,"_data"):
+    if hasattr(dataobj,"_data") and not hasattr(dataobj, "_get_numeric_data"):
       data = getattr(dataobj,"_data")
     else:
       data = dataobj
@@ -568,6 +612,7 @@ class folder:
       elif (self.logfile!={}) and (q not in self.logfile['parinfo']):
         self.logfile['parinfo'][q] = empty
     self.chain[q] = v
+
   def __contains__(self,m):
     return q in self.names
 
@@ -631,6 +676,8 @@ class folder:
       return self._read_log_montepython()
     elif self._code == _lq_code_type.cobaya:
       return self._read_log_cobaya()
+    elif self._code == _lq_code_type.emcee:
+      return {}
     else:
       raise Exception("Unexpected code type")
 
@@ -742,8 +789,8 @@ class folder:
         par = parinfo[pname]
         par['bound'] = [None,None]
         if 'prior' in par and 'dist' in par['prior'] and par['prior']['dist'] == 'uniform':
-          par['min'] = par['prior'].pop('loc',0)
-          par['max'] = par['min']+par['prior'].pop('scale',1)
+          par['min'] = par['prior'].pop('loc',par['prior'].pop('min',0))
+          par['max'] = par['min']+par['prior'].pop('scale',par['prior'].pop('max',1))
         if 'min' in par:
           par['bound'][0]  = par['min']
         if 'max' in par:
@@ -1097,7 +1144,8 @@ class folder:
         ranges={par:bounds[par] for par in names})
     return mcsamples
 
-  def __recursive_rectify(self, name):
+  @staticmethod
+  def _recursive_rectify(name):
     name = name.replace(" ","")
     idx = name.find("_")
     if idx>=0:
@@ -1117,27 +1165,37 @@ class folder:
         return name[:-2]+r"\_"+name[-1]
       # Catch { after underscore, so latex treats everything inside {...} as its own thing
       if name[idx+1]=='{':
-        idxclose = name[idx+2:].rfind("}")
+        depth = 1
+        idxclose = -1
+        for i in range(len(name)-idx-2):
+          if name[idx+2+i]=='{':
+            depth+=1
+          elif name[idx+2+i]=='}':
+            depth-=1
+          if depth==0:
+            idxclose = i
+            break
         if idxclose>=0:
-          subthing = self.__recursive_rectify(name[idx+2:idx+2+idxclose])
+          subthing = folder._recursive_rectify(name[idx+2:idx+2+idxclose])
           if idx+2+idxclose==len(name)-1:
             return name[:idx+2]+subthing+"}"
           if name[idx+2+idxclose+1]=='_':
-            return name[:idx+2]+subthing+r"}\_"+self.__recursive_rectify(name[idx+2+idxclose+2:])
-          return name[:idx+2]+subthing+"}"+self.__recursive_rectify(name[idx+2+idxclose+1:])
+            return name[:idx+2]+subthing+r"}\_"+folder._recursive_rectify(name[idx+2+idxclose+2:])
+          return name[:idx+2]+subthing+"}"+folder._recursive_rectify(name[idx+2+idxclose+1:])
         else:
-          return name[:idx+1]+"{}"+self.__recursive_rectify(name[idx+2:])
+          return name[:idx+1]+"{}"+folder._recursive_rectify(name[idx+2:])
       # Catch double underscore -> In this case, they all have to be escaped
       if name[idx+1]=='_':
-        return name[:idx]+r"\_\_"+self.__recursive_rectify(name[idx+2:])
+        return name[:idx]+r"\_\_"+folder._recursive_rectify(name[idx+2:])
       # If none of the above, check if there's another underscore two positions apart
       if name[idx+2]=='_':
-        return name[:idx+2]+r"\_"+self.__recursive_rectify(name[idx+3:])
-      return name[:idx+1]+self.__recursive_rectify(name[idx+1:])
+        return name[:idx+2]+r"\_"+folder._recursive_rectify(name[idx+3:])
+      return name[:idx+1]+folder._recursive_rectify(name[idx+1:])
     else:
       return name
 
-  def __rectify_control_characters(self, name):
+  @staticmethod
+  def _rectify_control_characters(name):
     replacedict = {"\n":r"\n","\t":r"\t","\a":r"\a","\r":r"\r"}
     for re, rp in replacedict.items():
       if re in name:
@@ -1146,7 +1204,7 @@ class folder:
     return name
 
   def _rectify_texnames(self):
-    return [self.__rectify_control_characters(self.__recursive_rectify(self._texnames[par])) for par in self.names[2:]]
+    return [self._rectify_control_characters(self._recursive_rectify(self._texnames[par])) for par in self.names[2:]]
 
   def constraint(self,parnames=None):
     if parnames is None:
@@ -1221,9 +1279,11 @@ class folder:
       return
     if names==None:
       names = self.names
+    if isinstance(add_point, dict):
+      add_point = [add_point]
     from getdist.plots import ParamInfo
     def __check_arg(arg):
-      exception_text = "Argument 'add_point' needs to be a dictionary, containing a value, or containing lists of [value, color] or [mean, sigma, color] -- you provided '{}'.".format(arg)
+      exception_text = "Argument 'add_point' needs to be a dictionary (or list of dictionaries), containing a value, or containing lists of [value, color] or [mean, sigma, color] for each parameter name -- you provided '{}'.".format(arg)
       if not isinstance(arg,list):
         arg = [arg]
       if len(arg)<1 or len(arg)>3:
@@ -1249,23 +1309,24 @@ class folder:
           else: # Diagonal
             xparam = paramnames_for_subplot[0]
             yparam = None
-          for name in add_point:
-            arg = __check_arg(add_point[name])
-            if xparam == name:
-              if arg[0]:
-                spp.add_x_marker(arg[1],color=arg[2],ax=[i,j],zorder=zorder)
-              else:
-                if yparam:
-                  spp.add_x_bands(arg[1],arg[2],color=arg[3],ax=[i,j],zorder=zorder)
-              flag = True
-            if yparam == name:
-              if arg[0]:
-                spp.add_y_marker(arg[1],color=arg[2],ax=[i,j],zorder=zorder)
-              else:
-                spp.add_y_bands(arg[1],arg[2],color=arg[3],ax=[i,j],zorder=zorder)
-              flag = True
+          for pt in add_point:
+            for name in pt:
+              arg = __check_arg(pt[name])
+              if xparam == name:
+                if arg[0]:
+                  spp.add_x_marker(arg[1],color=arg[2],ax=[i,j],zorder=zorder)
+                else:
+                  if yparam:
+                    spp.add_x_bands(arg[1],arg[2],color=arg[3],ax=[i,j],zorder=zorder)
+                flag = True
+              if yparam == name:
+                if arg[0]:
+                  spp.add_y_marker(arg[1],color=arg[2],ax=[i,j],zorder=zorder)
+                else:
+                  spp.add_y_bands(arg[1],arg[2],color=arg[3],ax=[i,j],zorder=zorder)
+                flag = True
     if not flag:
-      raise Exception("Could not find any of '{}' parameters in the generated plot provided as the 'spp' argument.".format(add_point.keys()))
+      raise Exception("Could not find any of '{}' parameters in the generated plot provided as the 'spp' argument.".format([pt.keys() for pt in add_point]))
     return
 
   def _add_covmat_around_center(self, spp, add_covmat, center_point, names=None,zorder=None,**kwargs):

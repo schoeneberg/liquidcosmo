@@ -214,6 +214,10 @@ class foldercollection:
     contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
     spp = get_subplot_plotter(settings=get_plot_settings(),width_inch=kwargs.pop('width_inch',None),subplot_size_ratio=kwargs.pop('subplot_size_ratio',None))
 
+    used_names = (self.common_names if not names else names)
+    if not 'params' in kwargs:
+      kwargs['params'] = used_names
+
     spp.settings.num_plot_contours = len(contours)
     rect = kwargs.pop('rectangle',None)
     if rect != None:
@@ -221,7 +225,6 @@ class foldercollection:
     else:
       spp.triangle_plot(gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
 
-    used_names = (self.common_names if not names else names)
     # Delegate to first folder, to use same function
     self.folderlist[0]._add_point(spp,add_point,names=used_names)
     if add_covmat == True:
@@ -326,5 +329,6 @@ class foldercollection:
   def __str__(self):
     return "Folderlist"+str(self.folderlist)
   def _rectify_tag(self, tag):
-    return tag.replace("_","\_")
+    return folder._rectify_control_characters(folder._recursive_rectify(tag))
+    #return tag.replace("_","\_")
 
