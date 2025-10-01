@@ -71,10 +71,12 @@ class foldercollection:
     return [f.names for f in self.folderlist]
   @property
   def common_names(self):
-    ret = set()
+    ret = []
     for fonames in self.names:
-      ret = ret.union(set(fonames[2:]))
-    return list(ret)
+      for n in fonames[2:]:
+        if n not in ret:
+          ret.append(n)
+    return ret
   @property
   def d(self):
     return [f.d for f in self.folderlist]
