@@ -73,7 +73,7 @@ class foldercollection:
   def common_names(self):
     ret = set()
     for fonames in self.names:
-      ret = ret.union(set(fonames))
+      ret = ret.union(set(fonames[2:]))
     return list(ret)
   @property
   def d(self):
