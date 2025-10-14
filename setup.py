@@ -5,7 +5,7 @@ with open("README.md","r") as rfile:
 
 requirements = []
 setup(name = "liquidcosmo",
-      version= "0.1.5",
+      version= "0.1.6",
       author = "Nils Schöneberg",
       description="Cosmological analyses made easy",
       long_description = readme,

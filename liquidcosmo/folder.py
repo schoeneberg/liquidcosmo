@@ -1128,9 +1128,18 @@ class folder:
 
     mean_of_covs = np.average(covs, weights=Ns, axis=0)
     cov_of_means = np.cov(means.T)#, fweights=Ns) <-- No weighting for increased stability against short outlier chains
-    L = np.linalg.cholesky(mean_of_covs)
-    Linv = np.linalg.inv(L)
-    eigvals = np.linalg.eigvalsh(Linv.dot(cov_of_means).dot(Linv.T))
+
+    # This is just to 'freshen up' the mean_of_covs a little bit, since numerically unstable chains can lead to small negative eigenvalues by numerical misfortune
+    from scipy.linalg import eigh
+    eig_mc, _ = np.linalg.eig(mean_of_covs)
+    jitter = np.max(eig_mc) * tolerance * np.eye(len(eig_mc))
+    # In principle, the code below does this:
+    # L = np.linalg.cholesky(mean_of_covs)
+    # Linv = np.linalg.inv(L)
+    # eigvals = np.linalg.eigvalsh(Linv.dot(cov_of_means).dot(Linv.T))
+    # Differences: Uses optimized eigh for generalized eigenvalue problem, and uses jitter to account for numerical issues
+    eigvals, _ = eigh(a=cov_of_means, b=mean_of_covs + jitter)
+
     return np.max(np.abs(eigvals))
 
   def to_getdist(self):
