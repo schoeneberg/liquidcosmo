@@ -6,8 +6,11 @@ from .util import RaggedArray
 
 class foldercollection:
 
-  def __init__(self, inlist=[]):
-    self.folderlist = inlist
+  def __init__(self, inlist=None):
+    if isinstance(inlist, list):
+      self.folderlist = inlist
+    else:
+      self.folderlist = []
 
   @classmethod
   def load(obj, *args, tags=None, **kwargs):
@@ -36,12 +39,10 @@ class foldercollection:
   def chain(self):
     return [f.chain for f in self.folderlist]
   def copy(self):
-    a = foldercollection()
-    a.folderlist = [f.copy() for f in self.folderlist]
+    a = foldercollection([f.copy() for f in self.folderlist])
     return a
   def deepcopy(self):
-    a = foldercollection()
-    a.folderlist = [f.deepcopy() for f in self.folderlist]
+    a = foldercollection([f.deepcopy() for f in self.folderlist])
     return a
   @property
   def cosmoargs(self):
