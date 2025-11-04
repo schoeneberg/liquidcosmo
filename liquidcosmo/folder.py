@@ -552,13 +552,24 @@ class folder:
     else:
       data = dataobj
 
-    names = list(data.columns)
+    if hasattr(data, "columns"):
+      names = list(data.columns)
 
-    if (self._arr == None):
+      if (self._arr == None):
 
-      self.lens = [len(data.index)]
+        self.lens = [len(data.index)]
 
-      self._arr = [data[name].to_numpy() for name in names]
+        self._arr = [data[name].to_numpy() for name in names]
+
+    else:
+      names = [x.replace(" ","_") for x in data.keys()]
+      name_translation = dict(zip(names , list(data.keys()) ))
+
+      if (self._arr == None):
+
+        self.lens = [len(data[names[0]])]
+
+        self._arr = [data[name_translation[name]] for name in names]
 
     parnames = {name:i for i,name in enumerate(names)}
 
@@ -1137,7 +1148,7 @@ class folder:
     R = np.abs(B/W)
     return {n:R[i] for i,n in enumerate((parnames if parnames!=None else self.names[2:]))}
 
-  def max_gelman(self, subdivisions=None):
+  def max_gelman(self, subdivisions=None, threshold=1e-5):
     subfolders = self.subdivide(subdivisions=subdivisions)
     means = np.array([sf.mean() for sf in subfolders])
     covs = np.array([sf.cov() for sf in subfolders])
@@ -1304,8 +1315,7 @@ class folder:
 
   def plot_getdist(self, **kwargs):
     from .foldercollection import foldercollection
-    fc = foldercollection()
-    fc.folderlist.append(self)
+    fc = foldercollection([self])
     return fc.plot_getdist(**kwargs)
 
   def _add_point(self, spp, add_point, names=None,zorder=None):

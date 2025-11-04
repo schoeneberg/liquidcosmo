@@ -6,8 +6,8 @@ from .util import RaggedArray
 
 class foldercollection:
 
-  def __init__(self):
-    self.folderlist = []
+  def __init__(self, inlist=[]):
+    self.folderlist = inlist
 
   @classmethod
   def load(obj, *args, tags=None, **kwargs):
