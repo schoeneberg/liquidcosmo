@@ -105,7 +105,7 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60, tag=None, keep_non_markovian=True):
+  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60, tag=None, keep_non_markovian=True, fix=False):
     a = obj()
     a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix, a._code = obj._resolve_chainname(path, kind=kind)
@@ -125,7 +125,7 @@ class folder:
         a.tag = os.path.basename(a._chainprefix)
     else:
       a.tag = tag
-    a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian)
+    a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian,fix=fix)
     return a
 
   @classmethod
@@ -227,7 +227,7 @@ class folder:
     return a
 
   # -- Load a given chain (for a given full filename)
-  def __ldchain__(filename,verbose=False,precision_mode=False,checkbroken=False,keep_non_markovian=True):
+  def __ldchain__(filename,verbose=False,precision_mode=False,checkbroken=False,keep_non_markovian=True, fix=False):
     # This should all be effectively equivalent to (but vastly faster and more memory efficient than)
     #arr = np.genfromtxt(filename).T
     if verbose:
@@ -268,6 +268,27 @@ class folder:
         i+=1
       return i, nm
 
+    # Putting the actual contents of the file into an array called 'arr' (HAS TO EXIST!!)
+    def load_file_fixing(f,storage_type, numitems):
+      f.seek(0)
+      i = 0
+      nm = 0
+      for line in f:
+        if line.startswith('#'):
+          if 'update proposal' in line:
+            nm = i
+          continue
+        items = line.split()
+        if len(items)==numitems:
+          try:
+            arr[i] = [storage_type(f) for f in items]
+            i+=1
+          except ValueError as ve:
+            pass # IGNORE the error (broken file), therefore ignore the line (since the chain is Markovian, this should be fine)
+        elif verbose:
+          print("liquidcosmo :: Ignoring broken line in file : {}".format(line))
+      return i, nm
+
     # A check to see if the last line of a file is broken for some reason
     def check_last_line(f,numitems):
       check_last_line = f.seek(0, 2)
@@ -289,12 +310,18 @@ class folder:
       numitems = get_num_items(f)
       if linenum<=0 or numitems==0 or numitems==None:
         return []
-      if checkbroken and not check_last_line(f,numitems):
-        raise Exception("File broken :: {} (last line is not proper)".format(filename))
+      if not fix and (checkbroken and not check_last_line(f,numitems)):
+        raise Exception("liquidcosmo :: File broken :: {} (last line is not proper) -- try load(..., fix=True)?\n Using fix=True is typically slower, but can fix broken chain files".format(filename))
       # The chain files are usually written at a relatively low precision, allowing us to use low precision representations. However, we still give the user the option to use full precision
       storage_type = (np.float64 if precision_mode == True else np.float32)
       arr = np.empty((linenum,numitems),dtype=storage_type)
-      real_len, non_markovian = load_file(f,storage_type) # MODIFIES arr (!!)
+      if not fix:
+        try:
+          real_len, non_markovian = load_file(f,storage_type) # MODIFIES arr (!!)
+        except ValueError as ve:
+          raise ValueError("liquidcosmo :: File broken :: {} -- try load(..., fix=True)?\n Using fix=True is typically slower, but can fix broken chain files\n Original error: {}".format(filename, str(ve)))
+      else:
+        real_len, non_markovian = load_file_fixing(f, storage_type, numitems) # MODIFIES arr (!!)
       if keep_non_markovian:
         arr = arr[:real_len]
       else:
@@ -388,7 +415,7 @@ class folder:
     return allchains, code
 
   # -- Load all points from folder --
-  def _get_array(self,excludesmall=True,burnin_threshold=3,timeout=60,keep_non_markovian=True):
+  def _get_array(self,excludesmall=True,burnin_threshold=3,timeout=60,keep_non_markovian=True, fix=False):
     if self._arr is not None:
       return self._arr
 
@@ -400,7 +427,7 @@ class folder:
     sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     pool = multiprocessing.Pool(8)
     signal.signal(signal.SIGINT, sigint_handler)
-    loading_function = partial(folder.__ldchain__,precision_mode=self.__precision_mode,keep_non_markovian=keep_non_markovian)
+    loading_function = partial(folder.__ldchain__,precision_mode=self.__precision_mode,keep_non_markovian=keep_non_markovian, fix=fix)
     try:
       filearr = pool.map_async(loading_function, chainnames)
       filearr = filearr.get(timeout) # by default 60 seconds (timeout)
@@ -518,12 +545,12 @@ class folder:
     self._texnames = {name:name for name in arrdict}
 
   # Create the chain object (equivalent to a named dictionary or arrays)
-  def get_chain(self,excludesmall=True,burnin_threshold=5,timeout=60,keep_non_markovian=True):
+  def get_chain(self,excludesmall=True,burnin_threshold=5,timeout=60,keep_non_markovian=True, fix=False):
     if not (self._narr is None):
       return self._narr
     if self._code == _lq_code_type.emcee:
       return self.get_chain_emcee()
-    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian)
+    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian, fix=fix)
     arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
     #arrdict = {'N':arr[0],'lnp':arr[1]}
     parnames, texnames = self._load_names()
