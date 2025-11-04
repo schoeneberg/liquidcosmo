@@ -62,6 +62,8 @@ class chain:
       return chain(OrderedDict({key:self._d[key][q] for key in self.names}))
     else:
       raise Exception("Cannot set chain with object of type "+str(type(q)))
+  def remove(self, q):
+    self._d.pop(q)
   def __str__(self):
     return "Chain"+self._str_part()
   def _str_part(self):

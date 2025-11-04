@@ -90,6 +90,29 @@ class foldercollection:
         pass
     if not flag:
       raise Exception("Could not derive the asked parameter '{}' within any of the underlying folders. Make sure that the function/array you are passing as the 'func' parameter is correct for at least one of the underlying folders.".format(name))
+    return self
+  def rename(self, name, newname, texrename=None):
+    flag = False
+    for f in self.folderlist:
+      try:
+        f.rename(name, newname, texrename = texrename)
+        flag = True
+      except KeyError as e:
+        pass
+    if not flag:
+      raise Exception("Could not rename the asked parameter '{}' within any of the underlying folders. Make sure that the function/array you are passing as the 'func' parameter is correct for at least one of the underlying folders.".format(name))
+    return self
+  def remove(self, name):
+    flag = False
+    for f in self.folderlist:
+      try:
+        f.remove(name)
+        flag = True
+      except KeyError as e:
+        pass
+    if not flag:
+      raise Exception("Could not remove the asked parameter '{}' within any of the underlying folders. Make sure that the function/array you are passing as the 'func' parameter is correct for at least one of the underlying folders.".format(name))
+    return self
   def get_chain(self,excludesmall=True,burnin_threshold=3):
     return [f.get_chain(excludesmall=excludesmall,burnin_threshold=burnin_threshold) for f in self.folderlist]
   def get_masked(self, mask):

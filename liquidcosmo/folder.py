@@ -612,7 +612,24 @@ class folder:
       elif (self.logfile!={}) and (q not in self.logfile['parinfo']):
         self.logfile['parinfo'][q] = empty
     self.chain[q] = v
-
+  def remove(self, q):
+    if isinstance(q, str):
+      if not q in self._texnames:
+          raise KeyError("Can only remove existing parameters, parameter '{}' not found".format(q))
+      self._texnames.pop(q)
+      self.chain.remove(q)
+      return True
+    else:
+      raise ValueError("Can only remove parameter by name (string), not {}".format(type(q)))
+  def rename(self, q, v, texrename=None):
+    if isinstance(q, str) and isinstance(v, str):
+      if not q in self._texnames:
+        raise KeyError("Can only remove existing parameters, parameter '{}' not found".format(q))
+      oldname = self._texnames.pop(q)
+      self._texnames[v] = (texrename if texrename is not None else oldname)
+      self.chain._d[v] = self.chain._d.pop(q)
+    else:
+      raise ValueError("Can only rename parameter by name (string), not {}".format(type(q)))
   def __contains__(self,m):
     return q in self.names
 
@@ -944,10 +961,10 @@ class folder:
       bounds[par] = self.get_range(par)
     return bounds
 
-  def set_texname(self,parname,texname):
+  def set_texname(self,parname,texname, ignore=False):
     if parname in self._texnames:
       self._texnames[parname] = texname
-    else:
+    elif not ignore:
       raise Exception("Parameter '{}' not found in the list of parameters.".format(parname))
 
   def get_masked(self, mask):
