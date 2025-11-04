@@ -1175,7 +1175,7 @@ class folder:
     R = np.abs(B/W)
     return {n:R[i] for i,n in enumerate((parnames if parnames!=None else self.names[2:]))}
 
-  def max_gelman(self, subdivisions=None, threshold=1e-5):
+  def max_gelman(self, subdivisions=None, tolerance=1e-5):
     subfolders = self.subdivide(subdivisions=subdivisions)
     means = np.array([sf.mean() for sf in subfolders])
     covs = np.array([sf.cov() for sf in subfolders])
