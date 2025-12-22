@@ -217,13 +217,13 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a data object
   @classmethod
-  def load_from(obj, dataobj, verbose=0, burnin_threshold = 3, tag=None):
+  def load_from(obj, dataobj, verbose=0, burnin_threshold = 3, tag=None, names=None):
     a = obj()
     a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix, a._code = "from data object",["from data object"],"from data object",_lq_code_type.montepython
     a.path = "from data object"
     a.tag = tag if tag else "from data object"
-    a.convert_chain(dataobj,burnin_threshold=burnin_threshold)
+    a.convert_chain(dataobj,burnin_threshold=burnin_threshold, input_names=names)
     return a
 
   # -- Load a given chain (for a given full filename)
@@ -570,7 +570,7 @@ class folder:
     return self._narr
 
   # Create the chain object (equivalent to a named dictionary or arrays)
-  def convert_chain(self,dataobj,burnin_threshold=5):
+  def convert_chain(self,dataobj,burnin_threshold=5, input_names=None):
     if not (self._narr == None):
       return self._narr
 
@@ -581,6 +581,8 @@ class folder:
 
     if hasattr(data, "columns"):
       names = list(data.columns)
+      if input_names is not None:
+        raise ValueError("Currently no immediate renaming implemented yet for dataframes")
 
       if (self._arr == None):
 
