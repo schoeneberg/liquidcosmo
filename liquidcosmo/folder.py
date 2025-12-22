@@ -1167,7 +1167,7 @@ class folder:
     totmean = self.mean(parnames=parnames)
     subfolders = self.subdivide(subdivisions=subdivisions)
     means = np.array([sf.mean(parnames=parnames) for sf in subfolders])
-    varias = np.array([np.sqrt(np.diag(sf.cov(parnames=parnames))) for sf in subfolders])
+    varias = np.array([sf.std(parnames=parnames)**2 for sf in subfolders])
     Ns = np.array([sf.N for sf in subfolders])
     # These should be at least as large as threhsold_min_subdivision of the subdivide method
     W = np.sum(Ns*varias.T,axis=-1)/totN
