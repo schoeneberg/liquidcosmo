@@ -1154,14 +1154,14 @@ class folder:
     if subdivisions == None:
       subdivisions = 10
     elif not isinstance(subdivisions,int):
-      raise Exception("The subdivisions argument for subdivide has to be an integer value. You provided '{}'".format(subdivisions))
+      raise ValueError("The subdivisions argument for subdivide has to be an integer value. You provided '{}'".format(subdivisions))
     else:
       custom_subdivision = True
 
     if len(self.lens)>1:
       n_sufficiently_long = np.count_nonzero(self.lens>=threshold_min_subdivision)
       if n_sufficiently_long<1:
-        raise Exception("All subdivisions would have sizes below the minimum size allowed '{}'".format(threshold_min_subdivision))
+        raise ValueError("All subdivisions would have sizes below the minimum size allowed '{}'".format(threshold_min_subdivision))
       # If only one of the chains in the folder is long enough, fall back to the single-chain algorithm
       elif n_sufficiently_long == 1:
         custom_subdivision = True
