@@ -224,6 +224,7 @@ class folder:
     a.path = "from data object"
     a.tag = tag if tag else "from data object"
     a.convert_chain(dataobj,burnin_threshold=burnin_threshold, input_names=names)
+    a._empty_log()
     return a
 
   # -- Load a given chain (for a given full filename)
@@ -734,7 +735,7 @@ class folder:
     elif self._code == _lq_code_type.cobaya:
       return self._read_log_cobaya()
     elif self._code == _lq_code_type.emcee:
-      return {}
+      return self._empty_log()
     else:
       raise Exception("Unexpected code type")
 
@@ -863,6 +864,14 @@ class folder:
       arginfo = logdict.pop('theory')
       loginfo = logdict
       self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
+    return self._log
+
+  def _empty_log(self):
+    if self._log == {} or self._log==None:
+      parinfo = {}
+      for pname in self.names[2:]:
+        parinfo[pname] = {'bound':[None,None]}
+      self._log = {'parinfo':parinfo, 'loginfo':{}, 'arginfo':{},'lklopts':{}}
     return self._log
 
   def __get_individual_counts(self):
