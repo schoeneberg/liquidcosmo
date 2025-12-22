@@ -591,6 +591,22 @@ class folder:
 
         self._arr = [data[name].to_numpy() for name in names]
 
+    elif hasattr(data,"__array__") or hasattr(data, "__array_interface__"):
+      if data.ndim > 2:
+        raise ValueError("Not sure what to do with this multi-dimensional array of more than 2 dimensions! -- shape(data) = {}".format(data.shape))
+      elif data.ndim == 1:
+        # Only a 1 dimensional array -- it's ambiguous whether a single point or a single dimension is meant. Let's assume a single dimension for the benefit of frequent usability
+        data = data[:, np.newaxis]
+      # Data is now 2 dimensional, with the sample index along the first dimension
+      if data.shape[1] > data.shape[0]:
+        raise ValueError("You appear to have more dimensions than points [{}].".format(data.shape))
+      if input_names is not None:
+        parnames = list(input_names)
+      else:
+        parnames = ["x_{}".format(i) for i in range(data.shape[1])]
+      names = ['N','lnp']+parnames
+      self.lens = [data.shape[0]]
+      self._arr = np.hstack([np.ones(data.shape[0])[:,None], np.zeros(data.shape[0])[:,None], np.asarray(data)]).T
     else:
       names = [x.replace(" ","_") for x in data.keys()]
       name_translation = dict(zip(names , list(data.keys()) ))
