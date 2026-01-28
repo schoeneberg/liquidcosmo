@@ -358,3 +358,7 @@ class foldercollection:
     return folder._rectify_control_characters(folder._recursive_rectify(tag))
     #return tag.replace("_","\_")
 
+  def log_evidence(self, **kwargs):
+    return [f.log_evidence(**kwargs) for f in self.folderlist]
+  def tension(self, other, **kwargs):
+    return [f.tension(other, **kwargs) for f in self.folderlist]

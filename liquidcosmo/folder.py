@@ -1548,3 +1548,140 @@ class folder:
     with open(filename,"w+") as f:
       for key in inidict:
         f.write("{}={}\n".format(key,inidict[key]))
+
+  def _sample_mask(self, condition="fixed", error=True):
+    if self.logfile and 'parinfo' in self.logfile:
+      fixed = np.array([(self.logfile['parinfo'][x]['type']!='derived') and (self.logfile['parinfo'][x]['initialsigma']==0) for x in self.logfile['parinfo']], dtype=bool)
+      if condition == "fixed":
+        return fixed
+      else:
+        types = np.array([self.logfile['parinfo'][x]['type'] for x in self.logfile['parinfo']])
+        types = types[~fixed]
+        if condition=="derived":
+          mask = [t in ['derived']  for t in types]
+        elif condition=="cosmo":
+          mask = [t in ['cosmo'] for t in types]
+        elif condition=="nuisance":
+          mask = [t in ['nuisance'] for t in types]
+        elif condition=="nonnuisance":
+          mask = [t in ['cosmo','derived'] for t in types]
+        elif condition=="free":
+          mask = [t in ['cosmo','nuisance'] for t in types]
+        else:
+          raise ValueError("Unknown input for field 'condition' : {}".format(condition))
+        mask = np.array(mask, dtype=bool)
+    else:
+      mask = np.ones(self.samples.shape[0], dtype=bool)
+    return mask
+
+
+  def log_evidence(self, k=2, ndim=None, cosmo_only=False, subdivide=False):
+    mask = self._sample_mask(condition=("cosmo" if cosmo_only else "free"))
+    if ndim is not None:
+      mask[ndim:] = False
+    if subdivide:
+      is_integer_subdivide = isinstance(subdivide, int) and not isinstance(subdivide, bool)
+      subdivisions = (subdivide if is_integer_subdivide else max(4, len(self.lens)))
+      individual_chains = self.subdivide(subdivisions=subdivisions)
+      evidences = [chain._estimate_log_evidence(k=k, mask=mask) for chain in individual_chains]
+      return np.mean(evidences), np.std(evidences)
+    return self._estimate_log_evidence(k=k, mask=mask)
+
+  # All credits go to https://github.com/yabebalFantaye/MCEvidence, though I have re-implemented it in a simplified form
+  def _estimate_log_evidence(self, k=2, ndim=None, mask=None):
+
+    # Step 0: Choosing which dimensions of the samples to use (based on mask, ndim)
+    from sklearn.neighbors import NearestNeighbors
+    from scipy.special import gamma
+    if mask is not None:
+      samps = self.samples[mask]
+      if ndim is not None:
+        raise ValueError("Cannot pass both a mask and ndim to estimate log evidence")
+      ndim = len(samps)
+    elif ndim is not None:
+      samps = self.samples[:ndim]
+    else:
+      samps = self.samples
+
+    weight = self['N']
+    S = self.N
+    SumW = np.sum(weight)
+
+    # Step 1: Whitening
+    # Transform to hypercube for using simple euclidean distances later
+    # This also ensures the k-NN search is parameter-scale independent
+    cov = np.cov(samps)
+    evals, evecs = np.linalg.eigh(cov)
+    if any(evals<0):
+      raise Exception("Issue : covariance of your parameters is not positive definite in evidence computation -- probably you are using very degenerate parameters(?).")
+    #evals = np.maximum(evals, 1e-15)
+    # The Jacobian accounts for the volume change during whitening, needs to be taken into account for final evidence
+    # |J| = sqrt(det(Cov)) = exp(0.5*sum(evals))
+    # Apparently the former is somehow more stable against bad covmats (surprisingly?)
+    jacobian = np.sqrt(np.linalg.det(cov))
+    whitened_samples = (samps.T @ evecs) / np.sqrt(evals)
+
+    # Step 2: k-NN Distance Search
+    # k+1 because the point itself is its own 0th neighbor
+    nbrs = NearestNeighbors(n_neighbors=k+1, metric='euclidean').fit(whitened_samples)
+    distances, _ = nbrs.kneighbors(whitened_samples)
+
+    dk_distances = distances[:, k] # Distance to the k-th neighbor (we don't take multiple k here)
+
+    # Step 3: Calculate Volumes of d-spheres (where d=ndim)
+    # V = [pi**(d/2) * R**d] / Gamma(1 + d/2)
+    unit_sphere_vol = np.pi ** (ndim/2) / gamma(1 + ndim/2)
+    volumes = unit_sphere_vol * np.power(dk_distances, ndim)
+
+    # Step 4: Likelihood Normalization (just for numerical stability of summing exponentials)
+    logL = -self['lnp']
+    logLmax = np.max(logL)
+    fs = logL - logLmax
+
+    # Step 5: Get amax (probability-weighted total volume (main ingredient of evidence))
+    dotp = np.dot(volumes/weight, np.exp(fs))
+    amax = dotp / (S * k + 1.0)
+
+    # Step 6: Final Log-Evidence
+    log_z = np.log(SumW * amax * jacobian) + logLmax
+
+    return log_z
+
+
+  def tension(self, other, param_names=None, verbose=False, return_diff_chain=False, metric="parameter_difference"):
+    try:
+      import tensiometer
+    except ImportError as ie:
+      print("Warning -- could not import 'tensiometer'. Please install that first.\nIf you don't want tensorflow, install as follows:\npip install git+https://github.com/mraveri/tensiometer --no-deps")
+      raise
+    from tensiometer.utilities.stats_utilities import from_confidence_to_sigma
+    if metric.lower()=="parameter_difference":
+      from tensiometer import mcmc_tension
+      diff_chain = mcmc_tension.parameter_diff_chain(self.to_getdist(), other.to_getdist(), param_names=param_names, boost=1)
+      N_par = len(diff_chain.getParamNames().list())
+      if N_par == 1:
+        shift_p, shift_p_low, shift_p_high = mcmc_tension.kde_parameter_shift_1D_fft(diff_chain, feedback=verbose)
+      elif N_par == 2:
+        shift_p, shift_p_low, shift_p_high = mcmc_tension.kde_parameter_shift_2D_fft(diff_chain, feedback=verbose)
+      else:
+        shift_p, shift_p_low, shift_p_high = mcmc_tension.kde_parameter_shift(diff_chain, feedback=verbose)
+      sigma_minus = from_confidence_to_sigma(shift_p_low)
+      sigma_mean = from_confidence_to_sigma(shift_p)
+      sigma_plus = from_confidence_to_sigma(shift_p_high)
+      ret = [sigma_mean, sigma_minus-sigma_mean, sigma_plus - sigma_mean]
+      if return_diff_chain:
+        ret = (diff_chain, ret)
+      return ret
+    elif metric.upper()=="Q_DM":
+      from tensiometer import gaussian_tension
+      from scipy.stats import chi2
+      q_dm = gaussian_tension.Q_DM(self.to_getdist(), other.to_getdist(), param_names=param_names)
+      return q_dm, from_confidence_to_sigma(chi2.cdf(*q_dm))
+    elif metric.upper()=="Q_UDM":
+      from tensiometer import gaussian_tension
+      from scipy.stats import chi2
+      q_udm = gaussian_tension.Q_UDM(self.to_getdist(), other.to_getdist(), param_names=param_names, upper_cutoff=np.inf)
+      return q_udm, from_confidence_to_sigma(chi2.cdf(*q_udm))
+    else:
+      raise ValueError("Unkown tension metric '{}'".format(metric))
+
