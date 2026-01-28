@@ -52,7 +52,7 @@ def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmau
     if i > index:
         spp.add_x_bands(newmean, newsig, color=color, ax=spp.subplots[i,index], alpha1=alpha1, alpha2=alpha2, label = label,zorder=-2)
 
-def get_gaussian_chain(mean, std=None, cov=None, names=None, N=10000, **kwargs):
+def get_gaussian_chain(mean, *, std=None, cov=None, names=None, N=10000, **kwargs):
   import numpy as np
   mean = np.atleast_1d(mean)
   dim = mean.shape[0]
