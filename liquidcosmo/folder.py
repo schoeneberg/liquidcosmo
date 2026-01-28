@@ -1305,40 +1305,61 @@ class folder:
   def _rectify_texnames(self):
     return [self._rectify_control_characters(self._recursive_rectify(self._texnames[par])) for par in self.names[2:]]
 
-  def constraint(self,parnames=None):
+  def constraint(self,parnames=None, use_getdist=False):
     if parnames is None:
       parnames = self.names[2:]
     if isinstance(parnames,str):
       return self.constraint([parnames])[parnames]
 
     # Turn into getdist to get 1d distribution -- TODO :: could also be done via histogramming (if no getdist installed)
-    gd = self.to_getdist()
+    if use_getdist:
+      try:
+        gd = self.to_getdist()
+      except ImportError as ie:
+        print("Import Error when trying to turn into getdist (see below). Falling back on alternative method!\n{}".format(ie))
     constraints = {}
     for parname in parnames:
-      gd_par = gd.paramNames.parWithName(parname)
-      gd_1d = gd.get1DDensity(gd_par.name)
-      onesig, twosig = gd_1d.getContourLevels() * self.__limit_safety_factor# or [np.exp(-1**2/2),np.exp(-2**2/2)]
+      # First, check the predefined range of the parameter
+      lower,upper = self.get_range(parname)
+
+      if use_getdist:
+        gd_par = gd.paramNames.parWithName(parname)
+        gd_1d = gd.get1DDensity(gd_par.name)
+        onesig, twosig = gd_1d.getContourLevels() * self.__limit_safety_factor
+        if lower is not None:
+          prob_l = gd_1d(lower)
+        if upper is not None:
+          prob_u = gd_1d(upper)
+      else:
+        samps = self[parname]
+        Nbins = 20
+        bins = np.linspace(lower if lower else np.min(samps), upper if upper else np.max(samps),num=Nbins+1)
+        vals, bins = np.histogram(samps, bins=bins, weights=self['N'])
+        vals/=vals.max()
+        onesig, twosig = [np.exp(-1**2/2),np.exp(-2**2/2)]
+        if lower is not None:
+          prob_l = vals[0]
+        if upper is not None:
+          prob_u = vals[1]
 
       # Identify whether the posterior sufficiently goes down at the boundary (using getdist)
-      lower,upper = self.get_range(parname)
       lower_problem = 0
       upper_problem = 0
       if lower is not None:
-        prob = gd_1d(lower)
         # Problem only for 1 sigma
-        if prob > onesig:
+        if prob_l > onesig:
           lower_problem = 1
         # Problem also for 2 sigma
-        elif prob > twosig:
+        elif prob_l > twosig:
           lower_problem = 2
       if upper is not None:
-        prob = gd_1d(upper)
         # Problem only for 1 sigma
-        if prob > onesig:
+        if prob_u > onesig:
           upper_problem = 1
         # Problem also for 2 sigma
-        elif prob > twosig:
+        elif prob_u > twosig:
           upper_problem = 2
+
 
       # With this information, say if there is a constraint
       if lower_problem==1 and upper_problem==1 or (lower_problem==1 and upper_problem==2) or (lower_problem==2 and upper_problem==1):

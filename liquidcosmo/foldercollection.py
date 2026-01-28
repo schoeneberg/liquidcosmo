@@ -240,12 +240,12 @@ class foldercollection:
     contour_ls = kwargs.pop('contour_ls',[line_args[i].get('ls','-') for i in range(len(gdfolders))])
     spp = get_subplot_plotter(settings=get_plot_settings(),width_inch=kwargs.pop('width_inch',None),subplot_size_ratio=kwargs.pop('subplot_size_ratio',None))
 
+    rect = kwargs.pop('rectangle',None)
     used_names = (self.common_names if not names else names)
-    if not 'params' in kwargs:
+    if not 'params' in kwargs and not rect:
       kwargs['params'] = used_names
 
     spp.settings.num_plot_contours = len(contours)
-    rect = kwargs.pop('rectangle',None)
     if rect != None:
       spp.rectangle_plot(rect['x'],rect['y'],roots=gdfolders, alphas=alphas,colors=colors,contour_ls=contour_ls,line_args=line_args,**kwargs)
     else:
