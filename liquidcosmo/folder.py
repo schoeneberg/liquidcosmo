@@ -1060,52 +1060,55 @@ class folder:
         obj = obj.subrange(p, v)
       return obj
 
-  def mean(self,parnames=None,asdict=False):
+  def mean(self,parnames=None,asdict=False, weighted=True):
     if asdict:
-      mean = self.mean(parnames=parnames,asdict=False)
+      mean = self.mean(parnames=parnames,asdict=False, weighted=weighted)
       return {p:mean[ip] for ip,p in enumerate(parnames or self.names[2:])}
     if isinstance(parnames,str):
-      return self._parmean(parnames)
+      return self._parmean(parnames, weighted=weighted)
     elif isinstance(parnames,(list,tuple)):
-      return np.array([self._parmean(q) for q in parnames])
+      return np.array([self._parmean(q, weighted=weighted) for q in parnames])
     elif parnames is None:
-      return np.array([self._parmean(q) for q in self.names[2:]])
+      return np.array([self._parmean(q, weighted=weighted) for q in self.names[2:]])
     else:
       raise Exception("Input to mean '{}' not recognized.".format(parnames))
 
-  def cov(self,parnames=None):
+  def cov(self,parnames=None, weighted=True):
     if isinstance(parnames,str):
-      return self._parcov([parnames])
+      return self._parcov([parnames], weighted=weighted)
     elif isinstance(parnames,(list,tuple)):
-      return self._parcov(parnames)
+      return self._parcov(parnames, weighted=weighted)
     elif parnames is None:
-      return self._parcov(self.names[2:])
+      return self._parcov(self.names[2:], weighted=weighted)
     else:
       raise Exception("Input to mean '{}' not recognized.".format(parnames))
-  def std(self,parnames=None,asdict=False):
+  def std(self,parnames=None,asdict=False, weighted=True):
     if asdict:
-      std = self.std(parnames=parnames,asdict=False)
+      std = self.std(parnames=parnames,asdict=False, weighted=weighted)
       return {p:std[ip] for ip,p in enumerate(parnames or self.names[2:])}
     if isinstance(parnames,str):
-      return self._parstd(parnames)
+      return self._parstd(parnames, weighted=weighted)
     elif isinstance(parnames,(list,tuple)):
-      return np.array([self._parstd(q) for q in parnames])
+      return np.array([self._parstd(q, weighted=weighted) for q in parnames])
     elif parnames is None:
-      return np.array([self._parstd(q) for q in self.names[2:]])
+      return np.array([self._parstd(q, weighted=weighted) for q in self.names[2:]])
     else:
       raise Exception("Input to std '{}' not recognized.".format(parnames))
 
-  def _parmean(self,parname):
-    return np.average(self[parname],weights=self['N'])
-  def _parcov(self,parnames):
+  def _parmean(self,parname, weighted=True):
+    weights = self['N'] if weighted else np.ones_like(self['N'])
+    return np.average(self[parname],weights=weights)
+  def _parcov(self,parnames, weighted=True):
     if self.N==1:
       raise Exception("Cannot compute covariance of a chain with only a single point!")
-    return np.cov([self[parname] for parname in parnames],fweights=self['N'])
-  def _parstd(self,parname):
+    weights = self['N'] if weighted else np.ones_like(self['N'])
+    return np.cov([self[parname] for parname in parnames],fweights=weights)
+  def _parstd(self,parname, weighted=True):
     if self.N==1:
       raise Exception("Cannot compute covariance of a chain with only a single point!")
     mean = self._parmean(parname)
-    return np.sqrt(np.average(np.array(self[parname]-mean)**2,weights=self['N']))
+    weights = self['N'] if weighted else np.ones_like(self['N'])
+    return np.sqrt(np.average(np.array(self[parname]-mean)**2,weights=weights))
 
   def _upper_limit(self,parname, alpha):
     # By default, this computes a given quantile

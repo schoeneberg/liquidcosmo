@@ -53,12 +53,12 @@ class foldercollection:
   @property
   def tags(self):
     return [f.tag for f in self.folderlist]
-  def cov(self,parnames=None):
-    return [f.cov(parnames=parnames) for f in self.folderlist]
-  def mean(self,parnames=None,asdict=False):
-    return [f.mean(parnames=parnames,asdict=asdict) for f in self.folderlist]
-  def std(self,parnames=None,asdict=False):
-    return [f.std(parnames=parnames,asdict=asdict) for f in self.folderlist]
+  def cov(self,parnames=None, weighted=True):
+    return [f.cov(parnames=parnames,weighted=weighted) for f in self.folderlist]
+  def mean(self,parnames=None,asdict=False, weighted=True):
+    return [f.mean(parnames=parnames,asdict=asdict,weighted=weighted) for f in self.folderlist]
+  def std(self,parnames=None,asdict=False, weighted=True):
+    return [f.std(parnames=parnames,asdict=asdict,weighted=weighted) for f in self.folderlist]
   def credible(self,parnames=None,p=None,sigma=None,twoside=False,upper=True):
     return [f.credible(parnames=parnames,p=p,sigma=sigma,twoside=twoside,upper=upper) for f in self.folderlist]
   def constraint(self,parnames=None):
