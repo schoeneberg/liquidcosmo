@@ -36,7 +36,7 @@ def load_from(dataobject,**kwargs):
 def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmaupper = None, sigmalower = None, sigma = None, label=None, alpha1=0.3, alpha2=0.2, color="grey"):
   spp = getdist_plotter_instance
   if (sigmalower or sigmaupper) and sigma:
-    raise Exception("Cannot pass 'sigma' and either of 'sigmalower' or 'sigmaupper'")
+    raise ValueError("Cannot pass 'sigma' and either of 'sigmalower' or 'sigmaupper'")
   elif sigma:
     sigmalower = sigma
     sigmaupper = sigma
@@ -52,3 +52,29 @@ def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmau
     if i > index:
         spp.add_x_bands(newmean, newsig, color=color, ax=spp.subplots[i,index], alpha1=alpha1, alpha2=alpha2, label = label,zorder=-2)
 
+def get_gaussian_chain(mean, std=None, cov=None, names=None, N=10000, **kwargs):
+  import numpy as np
+  mean = np.atleast_1d(mean)
+  dim = mean.shape[0]
+  if std is not None and cov is not None:
+    raise ValueError("Cannot pass both 'std' and 'cov' at the same time!")
+  elif cov is not None:
+    cov = np.atleast_2d(cov)
+    if cov.shape[0]!=cov.shape[1]:
+      raise ValueError("The covariance matrix 'cov' needs to be square shaped!")
+    if cov.shape[0]!=dim:
+      raise ValueError("The covariance matrix 'cov' needs to have the same dimension as the mean vector 'mean'")
+  elif std is not None:
+    std = np.atleast_1d(std)
+    if std.shape[0] !=dim:
+      raise ValueError("The standard deviation vector 'std' needs to have the same dimension as the mean vector 'mean'")
+    if std.size == 1:
+      cov = np.eye(dim) * std[0]**2 # Assume same std for all items
+    else:
+      cov = np.diag(std**2)
+  else:
+    raise ValueError("Please pass either 'std' or 'cov'")
+  samps = np.random.multivariate_normal(mean, cov, size=N)
+  fo = load_from(samps, names=names,**kwargs)
+  fo['lnp'] = 0.5*np.sum((mean-samps) @ np.linalg.inv(cov) * (mean-samps), axis=1)
+  return fo
