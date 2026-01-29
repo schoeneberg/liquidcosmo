@@ -114,8 +114,8 @@ class foldercollection:
     if not flag:
       raise Exception("Could not remove the asked parameter '{}' within any of the underlying folders. Make sure that the function/array you are passing as the 'func' parameter is correct for at least one of the underlying folders.".format(name))
     return self
-  def get_chain(self,excludesmall=True,burnin_threshold=3):
-    return [f.get_chain(excludesmall=excludesmall,burnin_threshold=burnin_threshold) for f in self.folderlist]
+  def get_chain(self,excludesmall=True):
+    return [f.get_chain(excludesmall=excludesmall) for f in self.folderlist]
   def get_masked(self, mask):
     a = self.deepcopy()
     for i in range(a.folen):
@@ -362,3 +362,10 @@ class foldercollection:
     return [f.log_evidence(**kwargs) for f in self.folderlist]
   def tension(self, other, **kwargs):
     return [f.tension(other, **kwargs) for f in self.folderlist]
+  def thin(self, factor, **kwargs):
+    if hasattr(factor, '__len__'):
+      if(len(factor)==len(self.folderlist)):
+        return [f.thin(factor[i], **kwargs) for i,f in enumerate(self.folderlist)]
+      else:
+        raise ValueError("The provided factor seems to be a list (or similar), but it does not have the same length as the list of folders in this collection")
+    return [f.thin(factor, **kwargs) for f in self.folderlist]

@@ -105,7 +105,7 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a path
   @classmethod
-  def load(obj, path, kind="all", burnin_threshold = 3, verbose = 0,timeout=60, tag=None, keep_non_markovian=True, fix=False):
+  def load(obj, path, kind="all", burnin_crit = 3, verbose = 0,timeout=60, tag=None, keep_non_markovian=True, fix=False):
     a = obj()
     a.verbose = verbose
     a._foldername, a._allchains, a._chainprefix, a._code = obj._resolve_chainname(path, kind=kind)
@@ -125,7 +125,8 @@ class folder:
         a.tag = os.path.basename(a._chainprefix)
     else:
       a.tag = tag
-    a.get_chain(burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian,fix=fix)
+    a.get_chain(timeout=timeout,keep_non_markovian=keep_non_markovian,fix=fix)
+    a._remove_burnin(burnin_crit)
     return a
 
   @classmethod
@@ -217,13 +218,14 @@ class folder:
 
   # Construct a folder object (containing multiple physical chains) from a data object
   @classmethod
-  def load_from(obj, dataobj, verbose=0, burnin_threshold = 3, tag=None, names=None):
+  def load_from(obj, dataobj, verbose=0, burnin_crit = 3, tag=None, names=None):
     a = obj()
     a.verbose = verbose
-    a._foldername, a._allchains, a._chainprefix, a._code = "from data object",["from data object"],"from data object",_lq_code_type.montepython
-    a.path = "from data object"
+    a._foldername, a._allchains, a._chainprefix, a._code = "from_data_object",["from_data_object"],"from_data_object",_lq_code_type.montepython
+    a.path = "from_data_object"
     a.tag = tag if tag else "from data object"
-    a.convert_chain(dataobj,burnin_threshold=burnin_threshold, input_names=names)
+    a.convert_chain(dataobj, input_names=names)
+    a._remove_burnin(burnin_crit)
     a._empty_log()
     return a
 
@@ -416,7 +418,7 @@ class folder:
     return allchains, code
 
   # -- Load all points from folder --
-  def _get_array(self,excludesmall=True,burnin_threshold=3,timeout=60,keep_non_markovian=True, fix=False):
+  def _get_array(self,excludesmall=True,timeout=60,keep_non_markovian=True, fix=False):
     if self._arr is not None:
       return self._arr
 
@@ -445,20 +447,6 @@ class folder:
     #filearr = [fa for fa in filearr if fa!=[] and fa.ndim>1]
     if(len(filearr))==0:
       raise Exception("There is probably a problem with the chain folder '{}' that is attempted to be analyzed. Please make sure that the folder is non-empty and the chains are not empty files.".format(self._foldername))
-
-    if burnin_threshold >= 0:
-      import scipy.stats
-      total_removed = 0
-      total_len = 0
-      #thres = scipy.stats.chi2.isf(scipy.special.erfc(burnin_threshold/np.sqrt(2)),len(arrs)-2)
-      for j in range(len(filearr)):
-        idx = np.argmax(filearr[j][1]<np.min(filearr[j][1])+burnin_threshold)
-        filearr[j] = filearr[j][:,idx:]
-        total_removed += idx
-        total_len += len(filearr[j][0])
-
-      if self.verbose > 0:
-        print("liquidcosmo :: Removed burnin [%i/%i] for chain in folder '%s'."%(total_removed,total_len,self._foldername))
 
     self.lens = np.array([len(fa[0]) for fa in filearr])
 
@@ -546,12 +534,12 @@ class folder:
     self._texnames = {name:name for name in arrdict}
 
   # Create the chain object (equivalent to a named dictionary or arrays)
-  def get_chain(self,excludesmall=True,burnin_threshold=5,timeout=60,keep_non_markovian=True, fix=False):
+  def get_chain(self,excludesmall=True,timeout=60,keep_non_markovian=True, fix=False):
     if not (self._narr is None):
       return self._narr
     if self._code == _lq_code_type.emcee:
       return self.get_chain_emcee()
-    arr = self._get_array(excludesmall=excludesmall,burnin_threshold=burnin_threshold,timeout=timeout,keep_non_markovian=keep_non_markovian, fix=fix)
+    arr = self._get_array(excludesmall=excludesmall,timeout=timeout,keep_non_markovian=keep_non_markovian, fix=fix)
     arrdict = OrderedDict({'N':arr[0],'lnp':arr[1]})
     #arrdict = {'N':arr[0],'lnp':arr[1]}
     parnames, texnames = self._load_names()
@@ -571,7 +559,7 @@ class folder:
     return self._narr
 
   # Create the chain object (equivalent to a named dictionary or arrays)
-  def convert_chain(self,dataobj,burnin_threshold=5, input_names=None):
+  def convert_chain(self,dataobj, input_names=None):
     if not (self._narr == None):
       return self._narr
 
@@ -689,6 +677,97 @@ class folder:
       raise ValueError("Can only rename parameter by name (string), not {}".format(type(q)))
   def __contains__(self,m):
     return q in self.names
+
+  def _remove_burnin(self, burnin_crit):
+    default_type = 'd'
+    default_value = {'s':5, 'd':5, 'n':0.1}
+    def parse_input_robust(burnin_string):
+      if not burnin_string:
+        return default_type, default_value[default_type]
+      if not isinstance(burnin_string, str):
+        if isinstance(burnin_string, (int, float, np.integer)):
+          return default_type, burnin_string
+        else:
+          raise ValueError(f"Cannot pass non-string arguments to remove burnin (except for numbers). Received : '{burnin_string}' of type '{type(burnin_string)}'")
+
+      s = burnin_string.strip().lower()
+
+      if s[-1] in default_value.keys():
+        typ = s[-1]
+        value_s = s[:-1]
+      else:
+        # No valid type found at the end, fall back to default
+        typ = default_type
+        value_s = s
+
+      if not value_s:
+        # No valid number found before type, fall back to default number for that type
+        return typ, default_value[typ]
+      try:
+        value = float(value_s)
+        return typ, value
+      except ValueError:
+        raise ValueError(f"Could not parse the string {burnin_string} -- perhaps malformed?") from None
+
+    burnin_type, burnin_value = parse_input_robust(burnin_crit)
+    if burnin_value < 0:
+      return
+
+    # ----------
+    # Here begins the actual core of the function
+    # ----------
+
+    # Step 0: Define likelihood threshold (only in cases 's' and 'd')
+    if burnin_type=='s':
+      import scipy.stats
+      import scipy.optimize
+      if(burnin_value>=35):
+        raise ValueError(f"The 'burnin_value' in sigmas is too large, cannot compute it using normal floating point precision!\nYour burnin_value was {burnin_value}.")
+      else:
+        thres = 0.5*scipy.stats.chi2.isf(scipy.special.erfc(burnin_value/np.sqrt(2)), len(self.names)-2)
+    elif burnin_type == 'd':
+      # burnin_value represents a given fixed cutoff in loglike
+      thres = burnin_value
+
+    # Step 1: Create arrays that contain the starting/endpoints of the individual chains within the folder
+    #         as well as the thresholds for cutting (from which we _start_ cutting)
+    lnp = self['lnp']
+    start = 0
+    removed = 0
+    # Normal starting/ending indices of the individual sub-chains
+    idcs_ends = np.cumsum(self.lens)
+    idcs_starts = np.empty_like(self.lens)
+    idcs_starts[0] = 0
+    idcs_starts[1:] = idcs_ends[:-1]
+    # New lengths of the individual sub-chains after burnin removal
+    idcs_thr = np.empty_like(self.lens)
+
+    # Step 2: Iterate through individual chains to get the threshold values
+    for i in range(len(self.lens)):
+      length = self.lens[i]
+      if burnin_type in ['s', 'd']:
+        lnp_chain = lnp[idcs_starts[i]:idcs_ends[i]]
+        # Get the first true element [argmax returns the first 'maximum' element, which here is either False,True -> (0,1)]
+        # This corresponds to the first sample where the lnp is below the threshold difference from the bestfit
+        idx_threshold = np.argmax(lnp_chain <= np.min(lnp_chain) + thres)
+      else: # it must be type 'n'
+        if burnin_value > 1: # It is not a fraction, but a number of items to remove
+          idx_threshold = burnin_value
+        else: #It is a fraction of the total length
+          idx_threshold = length * burnin_value
+      removed+=idx_threshold
+      new_len = length - idx_threshold
+      self.lens[i] = new_len
+      idcs_thr[i] = idx_threshold
+    # We don't want to filter only the samples/points, but indeed _all_ parts of the self.chain._d (including 'N' and 'lnp')
+    for k, array in self.chain._d.items():
+      slice_views = [array[start+thr:end] for (start, thr, end) in zip(idcs_starts, idcs_thr, idcs_ends)]
+      self.chain._d[k] = np.concatenate(slice_views)
+    if self.verbose > 0:
+      print("liquidcosmo :: Removed %i burnin points from folder of original length %i at location '%s'."%(removed,self.N,self._foldername))
+    if removed/self.N > 0.5:
+      print(f"liquidcosmo :: WARNING :: removed more than 50% of your chain {self._foldername} from burnin removal!")
+    self.chain.N = np.sum(self.lens)
 
   @property
   def bestfit(self):
@@ -1687,3 +1766,13 @@ class folder:
     else:
       raise ValueError("Unkown tension metric '{}'".format(metric))
 
+  def thin(self, thin_factor, weighted=True):
+    if thin_factor < 1:
+      print("WARNING :: thinning factors < 1 are interpreted as attempts to thin the chain down to that percentage.\nUsually the thinning factor t is defined as using only every t-th sample")
+      thin_factor = 1/thin_factor
+    w = (self['N'] if weighted else np.ones(self.N))
+    # this only works for python>3.0 due to the change of how // works there!
+    # The epsilon of 1e-10 is just for things to 'look' nicer, e.g. 50% of a chain then really does give you 1/2 of the size. Since thin_factor > 1 by definition, this should not be an issue
+    steps = np.cumsum(w) // (thin_factor+1e-10) # successive numbers of samples --> these will have 'steps' whenever the samples change by a large enough number
+    _, idx = np.unique(steps, return_index=True)
+    return self[idx]
