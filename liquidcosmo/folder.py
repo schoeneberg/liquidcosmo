@@ -863,7 +863,7 @@ class folder:
       try:
         import yaml
       except ImportError as ie:
-        raise Exception("Currently cannot run without pyyaml, sorry about that! Please run 'pip install pyyaml'") from ie
+        raise Exception("Currently cannot run cobaya analysis without pyyaml, sorry about that! Please run 'pip install pyyaml'") from ie
       logdict = yaml.safe_load(logfile)
       lklopts = logdict.pop('likelihood')
       parinfo = logdict.pop('params')
@@ -1551,11 +1551,12 @@ class folder:
 
   def _sample_mask(self, condition="fixed", error=True):
     if self.logfile and 'parinfo' in self.logfile:
-      fixed = np.array([(self.logfile['parinfo'][x]['type']!='derived') and (self.logfile['parinfo'][x]['initialsigma']==0) for x in self.logfile['parinfo']], dtype=bool)
+      fixed = np.array([('type' in self.logfile['parinfo'][x]) and (self.logfile['parinfo'][x]['type']!='derived') and (self.logfile['parinfo'][x]['initialsigma']==0) for x in self.logfile['parinfo']], dtype=bool)
       if condition == "fixed":
         return fixed
       else:
-        types = np.array([self.logfile['parinfo'][x]['type'] for x in self.logfile['parinfo']])
+        # Fundamentally, the code will assume that parameters for which the type is unknown might be 'cosmo'
+        types = np.array([(self.logfile['parinfo'][x]['type'] if 'type' in self.logfile['parinfo'][x] else 'cosmo') for x in self.logfile['parinfo']])
         types = types[~fixed]
         if condition=="derived":
           mask = [t in ['derived']  for t in types]
@@ -1584,7 +1585,7 @@ class folder:
       subdivisions = (subdivide if is_integer_subdivide else max(4, len(self.lens)))
       individual_chains = self.subdivide(subdivisions=subdivisions)
       evidences = [chain._estimate_log_evidence(k=k, mask=mask) for chain in individual_chains]
-      return np.mean(evidences), np.std(evidences)
+      return np.mean(evidences), np.std(evidences)/np.sqrt(len(evidences))
     return self._estimate_log_evidence(k=k, mask=mask)
 
   # All credits go to https://github.com/yabebalFantaye/MCEvidence, though I have re-implemented it in a simplified form
@@ -1610,7 +1611,7 @@ class folder:
     # Step 1: Whitening
     # Transform to hypercube for using simple euclidean distances later
     # This also ensures the k-NN search is parameter-scale independent
-    cov = np.cov(samps)
+    cov = np.atleast_2d(np.cov(samps))
     evals, evecs = np.linalg.eigh(cov)
     if any(evals<0):
       raise Exception("Issue : covariance of your parameters is not positive definite in evidence computation -- probably you are using very degenerate parameters(?).")
@@ -1658,6 +1659,7 @@ class folder:
     if metric.lower()=="parameter_difference":
       from tensiometer import mcmc_tension
       diff_chain = mcmc_tension.parameter_diff_chain(self.to_getdist(), other.to_getdist(), param_names=param_names, boost=1)
+
       N_par = len(diff_chain.getParamNames().list())
       if N_par == 1:
         shift_p, shift_p_low, shift_p_high = mcmc_tension.kde_parameter_shift_1D_fft(diff_chain, feedback=verbose)

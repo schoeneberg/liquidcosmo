@@ -76,5 +76,5 @@ def get_gaussian_chain(mean, *, std=None, cov=None, names=None, N=10000, **kwarg
     raise ValueError("Please pass either 'std' or 'cov'")
   samps = np.random.multivariate_normal(mean, cov, size=N)
   fo = load_from(samps, names=names,**kwargs)
-  fo['lnp'] = 0.5*np.sum((mean-samps) @ np.linalg.inv(cov) * (mean-samps), axis=1)
+  fo.chain._d['lnp'] = 0.5*np.sum((mean-samps) @ np.linalg.inv(cov) * (mean-samps), axis=1)
   return fo
