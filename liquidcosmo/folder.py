@@ -724,7 +724,8 @@ class folder:
       if(burnin_value>=35):
         raise ValueError(f"The 'burnin_value' in sigmas is too large, cannot compute it using normal floating point precision!\nYour burnin_value was {burnin_value}.")
       else:
-        thres = 0.5*scipy.stats.chi2.isf(scipy.special.erfc(burnin_value/np.sqrt(2)), len(self.names)-2)
+        k = np.count_nonzero(self._sample_mask(condition="free"))
+        thres = 0.5*scipy.stats.chi2.isf(scipy.special.erfc(burnin_value/np.sqrt(2)), k)
     elif burnin_type == 'd':
       # burnin_value represents a given fixed cutoff in loglike
       thres = burnin_value
