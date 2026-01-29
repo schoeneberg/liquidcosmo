@@ -1769,7 +1769,6 @@ class folder:
 
   def thin(self, thin_factor, weighted=True):
     if thin_factor < 1:
-      print("WARNING :: thinning factors < 1 are interpreted as attempts to thin the chain down to that percentage.\nUsually the thinning factor t is defined as using only every t-th sample")
       thin_factor = 1/thin_factor
     w = (self['N'] if weighted else np.ones(self.N))
     # this only works for python>3.0 due to the change of how // works there!
