@@ -1143,10 +1143,10 @@ class folder:
   def mean(self,parnames=None,asdict=False, weighted=True):
     if asdict:
       mean = self.mean(parnames=parnames,asdict=False, weighted=weighted)
-      return {p:mean[ip] for ip,p in enumerate(parnames or self.names[2:])}
+      return {p:mean[ip] for ip,p in enumerate(parnames if parnames is not None else self.names[2:])}
     if isinstance(parnames,str):
       return self._parmean(parnames, weighted=weighted)
-    elif isinstance(parnames,(list,tuple)):
+    elif isinstance(parnames,(list,tuple,np.ndarray)):
       return np.array([self._parmean(q, weighted=weighted) for q in parnames])
     elif parnames is None:
       return np.array([self._parmean(q, weighted=weighted) for q in self.names[2:]])
@@ -1156,7 +1156,7 @@ class folder:
   def cov(self,parnames=None, weighted=True):
     if isinstance(parnames,str):
       return self._parcov([parnames], weighted=weighted)
-    elif isinstance(parnames,(list,tuple)):
+    elif isinstance(parnames,(list,tuple,np.ndarray)):
       return self._parcov(parnames, weighted=weighted)
     elif parnames is None:
       return self._parcov(self.names[2:], weighted=weighted)
@@ -1165,10 +1165,10 @@ class folder:
   def std(self,parnames=None,asdict=False, weighted=True):
     if asdict:
       std = self.std(parnames=parnames,asdict=False, weighted=weighted)
-      return {p:std[ip] for ip,p in enumerate(parnames or self.names[2:])}
+      return {p:std[ip] for ip,p in enumerate(parnames if parnames is not None else self.names[2:])}
     if isinstance(parnames,str):
       return self._parstd(parnames, weighted=weighted)
-    elif isinstance(parnames,(list,tuple)):
+    elif isinstance(parnames,(list,tuple,np.ndarray)):
       return np.array([self._parstd(q, weighted=weighted) for q in parnames])
     elif parnames is None:
       return np.array([self._parstd(q, weighted=weighted) for q in self.names[2:]])
