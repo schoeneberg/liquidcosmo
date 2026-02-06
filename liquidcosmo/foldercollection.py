@@ -368,4 +368,4 @@ class foldercollection:
         return [f.thin(factor[i], **kwargs) for i,f in enumerate(self.folderlist)]
       else:
         raise ValueError("The provided factor seems to be a list (or similar), but it does not have the same length as the list of folders in this collection")
-    return [f.thin(factor, **kwargs) for f in self.folderlist]
+    return foldercollection([f.thin(factor, **kwargs) for f in self.folderlist])

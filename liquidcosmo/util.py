@@ -3,6 +3,10 @@ import numbers
 _round_exponential_max = 5
 _round_exponential_min = -5
 def round_reasonable(val, errp=None,errm=None , digits=1, equalize=0.0):
+  if np.isnan(val):
+    return "NaN"
+  if np.isinf(val):
+    return "INF"
   # Do some accounting a priori
   if digits<0:
     raise ValueError("Cannot print negative number of significant digits")

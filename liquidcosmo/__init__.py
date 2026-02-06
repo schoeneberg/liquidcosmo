@@ -52,7 +52,7 @@ def add_contours(getdist_plotter_instance, all_parnames, paramname, mean, sigmau
     if i > index:
         spp.add_x_bands(newmean, newsig, color=color, ax=spp.subplots[i,index], alpha1=alpha1, alpha2=alpha2, label = label,zorder=-2)
 
-def get_gaussian_chain(mean, *, std=None, cov=None, names=None, N=10000, **kwargs):
+def get_gaussian_chain(mean, *, std=None, cov=None, names=None, N=10000, bounds=None, **kwargs):
   import numpy as np
   mean = np.atleast_1d(mean)
   dim = mean.shape[0]
@@ -77,4 +77,10 @@ def get_gaussian_chain(mean, *, std=None, cov=None, names=None, N=10000, **kwarg
   samps = np.random.multivariate_normal(mean, cov, size=N)
   fo = load_from(samps, names=names,**kwargs)
   fo.chain._d['lnp'] = 0.5*np.sum((mean-samps) @ np.linalg.inv(cov) * (mean-samps), axis=1)
+  if bounds is not None:
+    bounds = np.atleast_2d(bounds)
+    if bounds.shape[0]!=mean.shape[0]:
+      raise ValueError("Please pass as many bounds as items in the mean")
+    for name, bound in zip(fo.names[2:], bounds):
+      fo.set_range(name, bound)
   return fo
