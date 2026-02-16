@@ -400,7 +400,8 @@ class folder:
       delim = ".hdf5"
     else:
       code = _lq_code_type.cobaya
-      chain_targets = [chain for chain in allfilenames if ".txt" in chain]
+      #chain_targets = [chain for chain in allfilenames if ".txt" in chain]#
+      chain_targets = [chain for chain in chain_targets if chain[-5].isdigit()]
 
     if kind=="newest" and code== _lq_code_type.montepython:
       chain_targets = np.sort(chain_targets)[::-1]
@@ -1656,7 +1657,7 @@ class folder:
     return mask
 
 
-  def log_evidence(self, k=2, ndim=None, cosmo_only=False, subdivide=False):
+  def log_evidence(self, k=2, ndim=None, cosmo_only=False, subdivide=False, verbose=True):
     mask = self._sample_mask(condition=("cosmo" if cosmo_only else "free"))
     if ndim is not None:
       mask[ndim:] = False
@@ -1664,12 +1665,36 @@ class folder:
       is_integer_subdivide = isinstance(subdivide, int) and not isinstance(subdivide, bool)
       subdivisions = (subdivide if is_integer_subdivide else max(4, len(self.lens)))
       individual_chains = self.subdivide(subdivisions=subdivisions)
-      evidences = [chain._estimate_log_evidence(k=k, mask=mask) for chain in individual_chains]
+      verbose = [False for _ in individual_chains]
+      verbose[0] = True
+      evidences = [chain._estimate_log_evidence(k=k, mask=mask, verbose=verb) for chain, verb in zip(individual_chains, verbose)]
       return np.mean(evidences), np.std(evidences)/np.sqrt(len(evidences))
-    return self._estimate_log_evidence(k=k, mask=mask)
+    return self._estimate_log_evidence(k=k, mask=mask, verbose=verbose)
+
+  def _estimate_log_prior_volume(self, ndim=None, mask=None, verbose=False):
+
+    # Step 0: Choosing which dimensions of the samples to use (based on mask, ndim)
+    if mask is not None:
+      names = np.array(self.names[2:])[mask]
+    elif ndim is not None:
+      names = self.names[2:ndim]
+    else:
+      names = self.names[2:]
+
+    bounds = self.get_bounds()
+    bound_arr = np.array([[bounds[p][0], bounds[p][1]] for p in names], dtype=np.float64)
+
+    bounds_mask = np.isnan(bound_arr).any(axis=1)
+    if not np.any(bounds_mask):
+      return np.sum(np.log(np.abs(bound_arr[:,1]-bound_arr[:,0])))
+    elif verbose:
+      masked_bounds = bound_arr[~bounds_mask]
+      print("liquidcosmo :: Warning: Could not properly estimate log prior volume for folder '{}' since bounds for parameters '{}' unknown!".format(self.tag, [names[i] for i in range(len(bound_arr)) if bounds_mask[i]]))
+      return np.sum(np.log(np.abs(masked_bounds[:,1]-masked_bounds[:,0])))
+    return 0
 
   # All credits go to https://github.com/yabebalFantaye/MCEvidence, though I have re-implemented it in a simplified form
-  def _estimate_log_evidence(self, k=2, ndim=None, mask=None):
+  def _estimate_log_evidence(self, k=2, ndim=None, mask=None, verbose=False):
 
     # Step 0: Choosing which dimensions of the samples to use (based on mask, ndim)
     from sklearn.neighbors import NearestNeighbors
@@ -1683,6 +1708,8 @@ class folder:
       samps = self.samples[:ndim]
     else:
       samps = self.samples
+      
+    log_prior = self._estimate_log_prior_volume(ndim=ndim, mask=mask, verbose=verbose)
 
     weight = self['N']
     S = self.N
@@ -1724,7 +1751,7 @@ class folder:
     amax = dotp / (S * k + 1.0)
 
     # Step 6: Final Log-Evidence
-    log_z = np.log(SumW * amax * jacobian) + logLmax
+    log_z = np.log(SumW * amax * jacobian) + logLmax - log_prior
 
     return log_z
 
