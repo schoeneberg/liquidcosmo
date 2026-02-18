@@ -1389,13 +1389,12 @@ class folder:
   def _rectify_texnames(self):
     return [self._rectify_control_characters(self._recursive_rectify(self._texnames[par])) for par in self.names[2:]]
 
-  def constraint(self,parnames=None, use_getdist=False):
+  def constraint(self,parnames=None, use_getdist=False, Nbins_max = 50):
     if parnames is None:
       parnames = self.names[2:]
     if isinstance(parnames,str):
       return self.constraint([parnames])[parnames]
 
-    # Turn into getdist to get 1d distribution -- TODO :: could also be done via histogramming (if no getdist installed)
     if use_getdist:
       try:
         gd = self.to_getdist()
@@ -1416,7 +1415,7 @@ class folder:
           prob_u = gd_1d(upper)
       else:
         samps = self[parname]
-        Nbins = 20
+        Nbins = max(len(samps)//1000, Nbins_max)
         bins = np.linspace(lower if lower else np.min(samps), upper if upper else np.max(samps),num=Nbins+1)
         vals, bins = np.histogram(samps, bins=bins, weights=self['N'])
         vals/=vals.max()
@@ -1424,7 +1423,7 @@ class folder:
         if lower is not None:
           prob_l = vals[0]
         if upper is not None:
-          prob_u = vals[1]
+          prob_u = vals[-1]
 
       # Identify whether the posterior sufficiently goes down at the boundary (using getdist)
       lower_problem = 0
@@ -1462,12 +1461,12 @@ class folder:
 
   def texconstraints(self,**kwargs):
     return self.texconstraint(**kwargs)
-  def texconstraint(self,parnames=None,withdollar=True,withname=True):
+  def texconstraint(self,parnames=None,withdollar=True,withname=True, **kwargs):
     if parnames is None:
       parnames = self.names[2:]
     if isinstance(parnames,str):
-      return self.constraint([parnames])[parnames]
-    constr = self.constraint(parnames=parnames)
+      return self.constraint([parnames], **kwargs)[parnames]
+    constr = self.constraint(parnames=parnames, **kwargs)
     means = self.mean(parnames=parnames,asdict=True)
     retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is True else None),name=(par if withname is False else None),equalize=self.__equalize_errors) for par in parnames])
     return retstr
