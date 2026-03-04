@@ -1178,9 +1178,43 @@ class folder:
     else:
       raise Exception("Input to std '{}' not recognized.".format(parnames))
 
+  def MAP(self,parnames=None,asdict=False, weighted=True):
+    if asdict:
+      mean = self.MAP(parnames=parnames,asdict=False, weighted=weighted)
+      return {p:mean[ip] for ip,p in enumerate(parnames if parnames is not None else self.names[2:])}
+    if isinstance(parnames,str):
+      return self._parmap(parnames, weighted=weighted)
+    elif isinstance(parnames,(list,tuple,np.ndarray)):
+      return np.array([self._parmap(q, weighted=weighted) for q in parnames])
+    elif parnames is None:
+      return np.array([self._parmap(q, weighted=weighted) for q in self.names[2:]])
+    else:
+      raise Exception("Input to mean '{}' not recognized.".format(parnames))
+
   def _parmean(self,parname, weighted=True):
     weights = self['N'] if weighted else np.ones_like(self['N'])
     return np.average(self[parname],weights=weights)
+  def _parmap(self,parname, weighted=True):
+    weights = self['N'] if weighted else np.ones_like(self['N'])
+    idx = np.argsort(self[parname])
+    s, w = self[parname][idx], weights[idx]
+    while len(s) > 5:
+        cw = np.cumsum(w)
+        j_indices = np.searchsorted(cw, cw + cw[-1] * 0.5)
+        valid = j_indices < len(s)
+        if not np.any(valid):
+            break
+        i_indices = np.arange(len(s))[valid]
+        j_indices = j_indices[valid]
+
+        distances = s[j_indices] - s[i_indices]
+        best_idx = np.argmin(distances)
+
+        start, end = i_indices[best_idx], j_indices[best_idx]
+        s = s[start : end + 1]
+        w = w[start : end + 1]
+
+    return np.average(s, weights=w)
   def _parcov(self,parnames, weighted=True):
     if self.N==1:
       raise Exception("Cannot compute covariance of a chain with only a single point!")
@@ -1210,17 +1244,82 @@ class folder:
     idx = np.searchsorted(wfracs, alpha)
     return samples[idxs[idx]]
 
-  def _credible(self,parname,p=None,sigma=None,twoside=False,upper=True):
+  def _HDI_credible(self, pdf_func, samples, weights, p = 0.95, lower = None, upper = None, grid_size=500):
+
+    # 1. Define the grid using weighted quantiles and a multiple of the IQR
+    def weighted_quantile(v, w, q):
+        s = np.argsort(v)
+        return np.interp(q, np.cumsum(w[s])/np.sum(w), v[s])
+
+    # We use the 4*IQR logic to bound our grid
+    q1, q3 = weighted_quantile(samples, weights, 0.25), weighted_quantile(samples, weights, 0.75)
+    iqr = q3 - q1
+
+    # Define a generous but bounded range
+    # Ensure we don't go outside the actual sample min/max significantly
+    lower_min = max(np.min(samples), lower) if lower is not None else np.min(samples)
+    upper_max = min(np.max(samples), upper) if upper is not None else np.max(samples)
+    g_min = max(lower_min, q1 - 4 * iqr)
+    g_max = min(upper_max, q3 + 4 * iqr)
+
+    x = np.linspace(g_min, g_max, grid_size)
+    y = pdf_func(x)
+    dx = x[1] - x[0]
+
+    # 2. Sort densities to find the threshold
+    idx_sort = np.argsort(y)[::-1]
+    y_sorted = y[idx_sort]
+
+    # 3. Cumulative Integration
+    # We calculate the mass contributed by each grid cell, starting from the peaks
+    cum_mass = np.cumsum(y_sorted) * dx
+
+    # 4. Find the threshold y*
+    try:
+        # Find where we first cross the target mass
+        threshold_idx = np.where(cum_mass >= p)[0][0]
+        y_star = y_sorted[threshold_idx]
+    except IndexError:
+        raise ValueError("Could not compute HDI on this posterior. Please check manually!")
+
+    # 5. Extract contiguous intervals where p(x) >= y*
+    indices = np.where(y >= y_star)[0]
+    intervals = []
+    if len(indices) > 0:
+        gaps = np.where(np.diff(indices) > 1)[0]
+        starts = np.insert(indices[gaps + 1], 0, indices[0])
+        ends = np.append(indices[gaps], indices[-1])
+
+        for s, e in zip(starts, ends):
+            intervals.append((x[s], x[e]))
+
+    return intervals
+
+  def _credible(self,parname,p=None,sigma=None,twoside=False,upper=True, logic="ETI", getdist=None):
     # By default, this computes the ETI (equal-tailed-interval)
     if sigma is not None:
       from scipy.special import erf
       if p is not None:
         raise ValueError("Cannot pass both a probability 'p' and a sigma deviation 'sigma'.")
-      return self.credible(parname,p=erf(sigma/np.sqrt(2)),twoside=twoside,upper=upper)
+      return self._credible(parname,p=erf(sigma/np.sqrt(2)),twoside=twoside,upper=upper, logic=logic, getdist=getdist)
     elif p is None:
       raise ValueError("You have to pass either a probability 'p' or a sigma deviation 'sigma'.")
     if p<0 or p>1:
       raise ValueError("Cannot pass {} (p={})".format(("p<0" if p<0 else "p>1"),p))
+    if logic.upper() not in ["ETI","HPI","HDI"]:
+      raise ValueError("For this function, logic='ETI' or logic='HPI', no other allowed. You passed {}".format(logic.upper()))
+    if logic.upper() == 'HPI' or logic.upper()=='HDI':
+      if getdist is not None:
+        gd_par = getdist.paramNames.parWithName(parname)
+        pdf_func = getdist.get1DDensity(gd_par.name)
+      else:
+        from scipy.stats import gaussian_kde
+        pdf_func = gaussian_kde(self[parname], weights=self['N'])
+      lower, upper = self.get_range(parname)
+      hdi_cred_intervals = self._HDI_credible(pdf_func, self[parname], self['N'], p, lower, upper)
+      if len(hdi_cred_intervals)>1:
+        raise ValueError("Multimodal posterior, HDI credible interval failed :: These are the determined (non-joint) intervals: {}".format(hdi_cred_intervals))
+      return hdi_cred_intervals[0]
     if twoside:
       return [self._upper_limit(parname,alpha=(1.-p)/2.),self._upper_limit(parname,alpha=1.-(1.-p)/2.)]
     elif not upper:
@@ -1228,10 +1327,10 @@ class folder:
     else:
       alph = p
     return self._upper_limit(parname,alpha=alph)
-  def credible(self,parnames=None,p=None,sigma=None,twoside=False,upper=True):
+  def credible(self,parnames=None,p=None,sigma=None,twoside=False,upper=True, logic='ETI'):
     if isinstance(parnames,str):
-      return self._credible(parnames,p=p,sigma=sigma,twoside=twoside,upper=upper)
-    return {pname:self._credible(pname,p=p,sigma=sigma,twoside=twoside,upper=upper) for pname in (parnames if parnames else self.names[2:])}
+      return self._credible(parnames,p=p,sigma=sigma,twoside=twoside,upper=upper,logic=logic)
+    return {pname:self._credible(pname,p=p,sigma=sigma,twoside=twoside,upper=upper,logic=logic) for pname in (parnames if parnames else self.names[2:])}
   def median(self,parname):
     return self.credible(parname,p=0.5)
 
@@ -1391,7 +1490,7 @@ class folder:
   def _rectify_texnames(self):
     return [self._rectify_control_characters(self._recursive_rectify(self._texnames[par])) for par in self.names[2:]]
 
-  def constraint(self,parnames=None, use_getdist=False, Nbins_max = 50):
+  def constraint(self,parnames=None, use_getdist=False, Nbins_max = 50, show_unconstrained_at_2sigma=True, logic="ETI"):
     if parnames is None:
       parnames = self.names[2:]
     if isinstance(parnames,str):
@@ -1445,20 +1544,36 @@ class folder:
         elif prob_u > twosig:
           upper_problem = 2
 
+      # Decide on which case to report
+      case = "+-"
+      if not show_unconstrained_at_2sigma:
+        if lower_problem==1 and upper_problem==1 or (lower_problem==1 and upper_problem==2) or (lower_problem==2 and upper_problem==1):
+          case = "unconstrained"
+        elif upper_problem == 1:
+          case = ">"
+        elif lower_problem==1:
+          case = "<"
+      else:
+        if lower_problem>=1 and upper_problem>=1:
+          case = "unconstrained"
+        elif upper_problem >=1:
+          case = ">"
+        elif lower_problem>=1:
+          case = "<"
 
       # With this information, say if there is a constraint
-      if lower_problem==1 and upper_problem==1 or (lower_problem==1 and upper_problem==2) or (lower_problem==2 and upper_problem==1):
+      if case=="unconstrained":
         #EITHER both a problem at 1 sigma, or one is fine at 1sig and the other cannot give 2 sigma
-        constraints[parname] = [[lower,upper],"unconstrained"]
-      elif upper_problem==1:
-        lowbound =  self._credible(parname,sigma=2,twoside=False,upper=False)
-        constraints[parname] = [[lowbound,upper],">"]
-      elif lower_problem==1:
-        upbound =  self._credible(parname,sigma=2,twoside=False,upper=True)
-        constraints[parname] = [[lower,upbound],"<"]
+        constraints[parname] = [[lower,upper],case]
+      elif case==">":
+        lowbound =  self._credible(parname,sigma=2,twoside=False,upper=False, logic=logic, getdist=(gd if use_getdist else None))
+        constraints[parname] = [[lowbound,upper],case]
+      elif case=="<":
+        upbound =  self._credible(parname,sigma=2,twoside=False,upper=True, logic=logic, getdist=(gd if use_getdist else None))
+        constraints[parname] = [[lower,upbound],case]
       else:
-        lowbound, upbound =  self._credible(parname,sigma=1,twoside=True)
-        constraints[parname] = [[lowbound,upbound],"+-"]
+        lowbound, upbound =  self._credible(parname,sigma=1, twoside=True, logic=logic, getdist=(gd if use_getdist else None))
+        constraints[parname] = [[lowbound,upbound],case]
     return constraints
 
   def texconstraints(self,**kwargs):
@@ -1469,7 +1584,10 @@ class folder:
     if isinstance(parnames,str):
       return self.constraint([parnames], **kwargs)[parnames]
     constr = self.constraint(parnames=parnames, **kwargs)
-    means = self.mean(parnames=parnames,asdict=True)
+    if 'logic' in kwargs and kwargs['logic'].upper() in ['HDI', 'HPI']:
+      means = self.MAP(parnames=parnames,asdict=True)
+    else:
+      means = self.mean(parnames=parnames,asdict=True)
     retstr = "\n".join([tex_convert(constr[par],withdollar,means[par],texname=(self._texnames[par] if withname is True else None),name=(par if withname is False else None),equalize=self.__equalize_errors) for par in parnames])
     return retstr
 
