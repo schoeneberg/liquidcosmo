@@ -1079,6 +1079,8 @@ class folder:
       else:
         upper = lower[1]
         lower = lower[0]
+    if not parname in self.names:
+      raise ValueError("Cannot set range on parameter '{}', not in this folder '{}'".format(parname, self.tag))
     if lower is not None and destructive:
       self._narr = self.chain[self[parname]>=lower]
     if upper is not None and destructive:

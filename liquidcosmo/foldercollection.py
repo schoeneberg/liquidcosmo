@@ -125,8 +125,13 @@ class foldercollection:
   def logfile(self):
     return [f.logfile for f in self.folderlist]
   def set_range(self,parname,lower=None,upper=None,destructive=False):
+    flag = False
     for f in self.folderlist:
-      f.set_range(parname, lower=lower, upper=upper,destructive=destructive)
+      if parname in f.names:
+        flag = True
+        f.set_range(parname, lower=lower, upper=upper,destructive=destructive)
+    if not flag:
+      raise ValueError("Parameter '{}' not found in any of the folders contained in this collection.".format(parname))
   def set_texname(self,parname,texname):
     flag = False
     for f in self.folderlist:
@@ -136,7 +141,7 @@ class foldercollection:
       except:
         pass
     if not flag:
-      raise Exception("Parameter '{}' not found in any of the folders contained in this collection.".format(parname))
+      raise ValueError("Parameter '{}' not found in any of the folders contained in this collection.".format(parname))
   def subrange(self, parname=None, value=None):
     for f in self.folderlist:
       f.subrange(parname=parname, value=value)
