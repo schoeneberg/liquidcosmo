@@ -1198,7 +1198,10 @@ class folder:
     weights = self['N'] if weighted else np.ones_like(self['N'])
     idx = np.argsort(self[parname])
     s, w = self[parname][idx], weights[idx]
-    while len(s) > 5:
+    min_length, max_iter = 20, 10000
+    for i in range(max_iter): # A while loop in disguise!
+        if len(s) <= min_length:
+          break
         cw = np.cumsum(w)
         j_indices = np.searchsorted(cw, cw + cw[-1] * 0.5)
         valid = j_indices < len(s)
@@ -1214,6 +1217,8 @@ class folder:
         s = s[start : end + 1]
         w = w[start : end + 1]
 
+        if end-start == min_length:
+          break
     return np.average(s, weights=w)
   def _parcov(self,parnames, weighted=True):
     if self.N==1:
@@ -1318,8 +1323,13 @@ class folder:
       lower, upper = self.get_range(parname)
       hdi_cred_intervals = self._HDI_credible(pdf_func, self[parname], self['N'], p, lower, upper)
       if len(hdi_cred_intervals)>1:
-        raise ValueError("Multimodal posterior, HDI credible interval failed :: These are the determined (non-joint) intervals: {}".format(hdi_cred_intervals))
-      return hdi_cred_intervals[0]
+        raise ValueError("Multimodal posterior for parameter '{}', HDI credible interval failed :: These are the determined (non-joint) intervals: {}".format(parname, hdi_cred_intervals))
+      if not twoside and upper:
+        return hdi_cred_intervals[0][0]
+      elif not twoside and not upper:
+        return hdi_cred_intervals[0][1]
+      else:
+        return hdi_cred_intervals[0]
     if twoside:
       return [self._upper_limit(parname,alpha=(1.-p)/2.),self._upper_limit(parname,alpha=1.-(1.-p)/2.)]
     elif not upper:
