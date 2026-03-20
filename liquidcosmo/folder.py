@@ -1839,11 +1839,11 @@ class folder:
       samps = self.samples[:ndim]
     else:
       samps = self.samples
-      
+
     log_prior = self._estimate_log_prior_volume(ndim=ndim, mask=mask, verbose=verbose)
 
     weight = self['N']
-    S = self.N
+    S = len(weight)
     SumW = np.sum(weight)
 
     # Step 1: Whitening
@@ -1933,4 +1933,9 @@ class folder:
     # The epsilon of 1e-10 is just for things to 'look' nicer, e.g. 50% of a chain then really does give you 1/2 of the size. Since thin_factor > 1 by definition, this should not be an issue
     steps = np.cumsum(w) // (thin_factor+1e-10) # successive numbers of samples --> these will have 'steps' whenever the samples change by a large enough number
     _, idx = np.unique(steps, return_index=True)
+    self.lens = np.diff(np.searchsorted(idx, np.cumsum(np.concatenate([[0], self.lens]))))
     return self[idx]
+
+
+
+
