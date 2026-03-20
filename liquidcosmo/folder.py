@@ -436,7 +436,7 @@ class folder:
       filearr = pool.map_async(loading_function, chainnames)
       filearr = filearr.get(timeout) # by default 60 seconds (timeout)
     except KeyboardInterrupt:
-      print("You stopped the loading of the chains by KeyboardInterrupt")
+      print("liquidcosmo :: You stopped the loading of the chains by KeyboardInterrupt")
       pool.terminate()
       raise
     else:
@@ -924,13 +924,13 @@ class folder:
             raise Exception("Unrecognized line in log.param :\n",repr(line))
           line = logfile.readline()
       if self.verbose>2:
-        print("loginfo = ",loginfo)
-        print("parinfo = ",parinfo)
-        print("arginfo = ",arginfo)
-        print("lklopts = ",lklopts)
+        print("liquidcosmo :: loginfo = ",loginfo)
+        print("liquidcosmo :: parinfo = ",parinfo)
+        print("liquidcosmo :: arginfo = ",arginfo)
+        print("liquidcosmo :: lklopts = ",lklopts)
       self._log = {'loginfo':loginfo,'parinfo':parinfo,'arginfo':arginfo,'lklopts':lklopts}
     except Exception as e:
-      print("ERROR reading logfile : ",e)
+      print("liquidcosmo :: ERROR reading logfile : ",e)
       self._log = {}
     return self._log
 
@@ -1335,9 +1335,11 @@ class folder:
     return self.credible(parname,p=0.5)
 
   def subdivide(self, subdivisions=None, threshold_min_subdivision=100):
+    if not np.sum(self.lens) == self.N:
+      print("liquidcosmo :: Warning, subdivide was called on a folder in which the individual lengths don't add up to the full length, be careful about the result!")
     custom_subdivision = False
     if subdivisions == None:
-      subdivisions = 10
+      subdivisions = 10 # This is irrelevant, since custom_subdivision=False
     elif not isinstance(subdivisions,int):
       raise ValueError("The subdivisions argument for subdivide has to be an integer value. You provided '{}'".format(subdivisions))
     else:
@@ -1500,7 +1502,7 @@ class folder:
       try:
         gd = self.to_getdist()
       except ImportError as ie:
-        print("Import Error when trying to turn into getdist (see below). Falling back on alternative method!\n{}".format(ie))
+        print("liquidcosmo :: Import Error when trying to turn into getdist (see below). Falling back on alternative method!\n{}".format(ie))
     constraints = {}
     for parname in parnames:
       # First, check the predefined range of the parameter
@@ -1879,7 +1881,7 @@ class folder:
     try:
       import tensiometer
     except ImportError as ie:
-      print("Warning -- could not import 'tensiometer'. Please install that first.\nIf you don't want tensorflow, install as follows:\npip install git+https://github.com/mraveri/tensiometer --no-deps")
+      print("liquidcosmo :: Warning -- could not import 'tensiometer'. Please install that first.\nIf you don't want tensorflow, install as follows:\npip install git+https://github.com/mraveri/tensiometer --no-deps")
       raise
     from tensiometer.utilities.stats_utilities import from_confidence_to_sigma
     if metric.lower()=="parameter_difference":
